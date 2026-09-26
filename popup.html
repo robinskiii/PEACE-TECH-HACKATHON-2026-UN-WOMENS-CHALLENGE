@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reality Check</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="popup-body">
+  <main class="popup-shell">
+    <header class="popup-header">
+      <p class="popup-kicker">Reality Check</p>
+      <h1>Flag gendered hate speech and disinformation</h1>
+      <p class="popup-copy">
+        The extension extracts readable text and supporting HTML snippets from the current page,
+        sends them to your configured LLM endpoint, and highlights risky claims aimed at women leaders.
+      </p>
+    </header>
+
+    <label class="popup-toggle">
+      <input type="checkbox" id="enableExtension" checked>
+      <span>Analyze pages automatically</span>
+    </label>
+
+    <label class="popup-field">
+      <span>API key</span>
+      <input id="apiKey" type="password" placeholder="Paste your LLM API key">
+    </label>
+
+    <label class="popup-field">
+      <span>Chat completions endpoint</span>
+      <input id="apiEndpoint" type="url" placeholder="https://.../v1/chat/completions">
+    </label>
+
+    <label class="popup-field">
+      <span>Model name</span>
+      <input id="model" type="text" placeholder="Model identifier">
+    </label>
+
+    <div class="popup-actions">
+      <button id="saveSettings" type="button">Save settings</button>
+      <button id="rescanPage" type="button" class="secondary">Rescan page</button>
+    </div>
+
+    <p id="status" class="popup-status" hidden></p>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>
