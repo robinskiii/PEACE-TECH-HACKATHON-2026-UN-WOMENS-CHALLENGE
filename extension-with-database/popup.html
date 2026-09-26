@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Reality Check</title>
+  <style>
+    body { width: 300px; margin: 0; padding: 16px; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1f1f; }
+    h1 { font-size: 17px; margin: 0 0 2px; }
+    .tagline { color: #666; font-size: 12px; margin: 0 0 14px; }
+    label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 12px; color: #444; }
+    select { width: 100%; padding: 6px; font: inherit; border: 1px solid #ccc; border-radius: 6px; }
+    .row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .langs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; font-size: 13px; }
+    .langs label { font-weight: 400; margin: 0; color: #1f1f1f; display: flex; gap: 6px; align-items: center; }
+    .status { margin-top: 14px; padding: 10px; background: #f5f5f5; border-radius: 8px; font-size: 12px; color: #444; }
+    .status.error { background: #fdecea; color: #8a1c1c; }
+    button { margin-top: 10px; width: 100%; padding: 8px; border: 0; border-radius: 6px; background: #1f1f1f; color: #fff; font: 600 13px system-ui, sans-serif; cursor: pointer; }
+    button:disabled { opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <h1>Reality Check</h1>
+  <p class="tagline">Flags gendered attacks on women leaders and shows what to do.</p>
+
+  <div class="row">
+    <span>Active on pages</span>
+    <input type="checkbox" id="enabled" aria-label="Active on pages">
+  </div>
+
+  <label for="country">Your country</label>
+  <select id="country">
+    <option value="PH">Philippines</option>
+    <option value="AU">Australia</option>
+    <option value="FJ">Fiji</option>
+    <option value="IN">India</option>
+    <option value="PK">Pakistan</option>
+    <option value="ID">Indonesia</option>
+    <option value="VN">Vietnam</option>
+  </select>
+
+  <label>Languages you read</label>
+  <div class="langs" id="languages">
+    <label><input type="checkbox" value="en"> English</label>
+    <label><input type="checkbox" value="tl"> Tagalog</label>
+    <label><input type="checkbox" value="hi"> Hindi</label>
+    <label><input type="checkbox" value="ur"> Urdu</label>
+    <label><input type="checkbox" value="fj"> Fijian</label>
+    <label><input type="checkbox" value="id"> Indonesian</label>
+    <label><input type="checkbox" value="vi"> Vietnamese</label>
+  </div>
+
+  <label for="role">I am</label>
+  <select id="role">
+    <option value="target">The person being targeted</option>
+    <option value="ally">An ally or bystander</option>
+    <option value="organization">Staff of an organisation / UN Women office</option>
+  </select>
+
+  <div class="status" id="status">Loading…</div>
+  <button id="refresh">Update word list now</button>
+
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

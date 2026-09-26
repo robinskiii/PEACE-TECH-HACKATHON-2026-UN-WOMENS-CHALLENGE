@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Reality Check",
+  "version": "2.0",
+  "description": "Flags gendered hate speech and disinformation against women leaders, explains why, and shows what to do next.",
+  "permissions": ["storage", "unlimitedStorage", "alarms"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["config.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Reality Check"
+  }
+}
