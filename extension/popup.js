@@ -1,0 +1,74 @@
+const $ = (s) => document.querySelector(s);
+let tab = null;
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+const sendBg = (msg) => new Promise((r) => chrome.runtime.sendMessage(msg, (res) => r(res || { ok: false, error: chrome.runtime.lastError?.message })));
+const sendTab = (msg) => new Promise((r) => chrome.tabs.sendMessage(tab.id, msg, (res) => r(chrome.runtime.lastError ? null : res)));
+
+async function saveSettings(patch) {
+  const s = await kalasagSettings();
+  await chrome.storage.local.set({ settings: { ...s, ...patch } });
+}
+
+const STATUS_TEXT = {
+  starting: "Reading the page…", checking: "Checking…", done: "Checked", "ai-error": "AI check failed",
+  limit: "Stopped at the per-page limit", off: "Kalasag is off", paused: "Paused on this site",
+};
+
+async function render() {
+  const s = await kalasagSettings();
+  $("#enabled").checked = s.enabled;
+  const page = $("#page");
+  page.replaceChildren();
+  const st = tab ? await sendTab({ type: "tab:state" }) : null;
+
+  if (!st) {
+    page.append(el("p", "muted", "Kalasag can't read this page. It works on normal websites, not browser pages or the Web Store. If you just installed or reloaded the extension, refresh the page."));
+    $("#rescan").disabled = true; $("#pause").disabled = true;
+  } else {
+    const flagsLine = el("p");
+    flagsLine.append(el("span", "big", String(st.flags)), el("span", "muted", st.flags === 1 ? "  flagged item" : "  flagged items"));
+    page.append(flagsLine, el("p", "muted", `${STATUS_TEXT[st.status] || st.status} · ${st.checked} snippets checked by AI` +
+      (st.waiting ? ` · ${st.waiting} waiting` : "")));
+    if (st.lastError) page.append(el("p", "err", st.lastError));
+    const paused = kalasagIsExcluded(st.host, s.excludedSites);
+    $("#pause").textContent = paused ? "Resume on this site" : "Pause on this site";
+    $("#pause").onclick = async () => {
+      const list = paused ? s.excludedSites.filter((x) => !kalasagIsExcluded(st.host, [x])) : [...s.excludedSites, st.host];
+      await saveSettings({ excludedSites: list });
+      setTimeout(render, 300);
+    };
+  }
+
+  const ai = $("#ai");
+  ai.replaceChildren();
+  const { aiStatus, lexicon = [], pending = [] } = await chrome.storage.local.get(["aiStatus", "lexicon", "pending"]);
+  if (!s.sharedKey && !s.teamKey) ai.append(el("p", "err", "No AI key set, so only the word list is used. Add a key in Settings."));
+  else if (aiStatus && aiStatus.ok) ai.append(el("p", "ok", `AI connected (${aiStatus.keyUsed} key)`));
+  else if (aiStatus && !aiStatus.ok) ai.append(el("p", "err", `AI problem: ${aiStatus.error}`));
+  ai.append(el("p", "muted", `${lexicon.length} words in the word list`));
+
+  const pb = $("#pending");
+  pb.hidden = !pending.length;
+  pb.textContent = `Send ${pending.length} saved report${pending.length === 1 ? "" : "s"} to the website`;
+}
+
+$("#enabled").addEventListener("change", async (e) => { await saveSettings({ enabled: e.target.checked }); setTimeout(render, 300); });
+$("#rescan").addEventListener("click", async () => { await sendTab({ type: "tab:rescan" }); setTimeout(render, 500); });
+$("#settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
+$("#words").addEventListener("click", async (e) => {
+  e.target.disabled = true; e.target.textContent = "Refreshing…";
+  const r = await sendBg({ type: "refreshLexicon" });
+  e.target.textContent = r.ok ? `Word list updated (${r.count} words)` : "Website not reachable. Is app.py running?";
+  e.target.disabled = false;
+  render();
+});
+$("#pending").addEventListener("click", async (e) => {
+  e.target.disabled = true;
+  const r = await sendBg({ type: "retryPending" });
+  e.target.disabled = false;
+  e.target.textContent = r.ok ? `Sent ${r.sent}, ${r.left} still waiting` : r.error;
+  setTimeout(render, 1500);
+});
+
+chrome.tabs.query({ active: true, currentWindow: true }).then(([t]) => { tab = t; render(); });

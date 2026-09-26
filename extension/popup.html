@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+:root { --ink: #1F2A48; --soft: #4A5572; --paper: #fff; --rule: #D8DCE4; --marigold: #E4A11B; --red: #A33A2F; --teal: #17665E; }
+@media (prefers-color-scheme: dark) { :root { --ink: #E8EBF3; --soft: #A7AFC4; --paper: #1C2438; --rule: #2E3850; --red: #EC8B80; --teal: #5DC0B3; } }
+body { margin: 0; width: 300px; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+.top { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px 10px; }
+.brand { font-weight: 800; font-size: 18px; }
+.stripe { height: 4px; margin: 0 16px 12px; border-radius: 2px;
+  background: repeating-linear-gradient(90deg, var(--marigold) 0 10px, transparent 10px 14px, var(--ink) 14px 20px, transparent 20px 24px); }
+.switch { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--soft); cursor: pointer; }
+.section { padding: 0 16px 12px; }
+.big { font-size: 28px; font-weight: 800; line-height: 1; }
+.muted { color: var(--soft); font-size: 13px; }
+.err { color: var(--red); font-size: 13px; }
+.ok { color: var(--teal); font-size: 13px; }
+.buttons { display: grid; gap: 6px; padding: 4px 16px 16px; }
+button { font: 600 13px system-ui, sans-serif; border: 1px solid var(--rule); background: transparent; color: var(--ink);
+  border-radius: 7px; padding: 8px 10px; text-align: left; cursor: pointer; }
+button.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+button:disabled { opacity: .5; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--marigold); outline-offset: 1px; }
+hr { border: 0; border-top: 1px solid var(--rule); margin: 0 16px 12px; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <span class="brand">Kalasag</span>
+    <label class="switch"><input type="checkbox" id="enabled"> On</label>
+  </div>
+  <div class="stripe" aria-hidden="true"></div>
+
+  <div class="section" id="page">
+    <p class="muted">Loading…</p>
+  </div>
+  <div class="section" id="ai"></div>
+  <hr>
+  <div class="buttons">
+    <button class="primary" id="rescan">Check this page again</button>
+    <button id="pause">Pause on this site</button>
+    <button id="words">Refresh word list</button>
+    <button id="pending" hidden></button>
+    <button id="settings">Settings</button>
+  </div>
+<script src="shared.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>

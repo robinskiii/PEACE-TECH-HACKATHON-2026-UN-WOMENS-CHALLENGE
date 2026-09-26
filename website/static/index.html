@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kalasag · partner dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+:root {
+  --ink: #1F2A48; --ink-soft: #4A5572; --paper: #F4F5F8; --surface: #FFFFFF;
+  --rule: #D8DCE4; --marigold: #E4A11B; --marigold-soft: #FDF3DC;
+  --teal: #17665E; --teal-soft: #E1F0EE; --red: #A33A2F; --red-soft: #F8E4E1;
+  --font: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #E8EBF3; --ink-soft: #A7AFC4; --paper: #141A2B; --surface: #1C2438;
+    --rule: #2E3850; --marigold: #F0B53F; --marigold-soft: #3A2F16;
+    --teal: #5DC0B3; --teal-soft: #153230; --red: #EC8B80; --red-soft: #3B1F1C;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--font); color: var(--ink); background: var(--paper); font-size: 15px; line-height: 1.5; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--marigold); outline-offset: 2px; }
+
+.shell { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+.rail { background: var(--ink); color: #fff; padding: 28px 18px; position: sticky; top: 0; height: 100vh; }
+@media (prefers-color-scheme: dark) { .rail { background: #0E1320; } }
+.brand { font-weight: 800; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 2px; }
+.brand-sub { font-size: 13px; opacity: .72; margin: 0 0 28px; }
+.weave { height: 6px; margin: 0 0 24px; border-radius: 3px;
+  background: repeating-linear-gradient(90deg, var(--marigold) 0 10px, transparent 10px 14px, #7E8BB0 14px 20px, transparent 20px 24px); }
+.nav button { display: block; width: 100%; text-align: left; background: none; border: 0; color: #fff;
+  font: inherit; font-weight: 500; padding: 10px 12px; border-radius: 6px; cursor: pointer; opacity: .78; }
+.nav button:hover { opacity: 1; background: rgba(255,255,255,.06); }
+.nav button[aria-current="page"] { opacity: 1; background: rgba(255,255,255,.12); }
+.nav .count { float: right; background: var(--marigold); color: #1F2A48; border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 700; }
+.ai-state { margin-top: 28px; font-size: 13px; opacity: .8; }
+.ai-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #8a93a8; }
+.ai-dot.on { background: #6FD3A5; }
+
+main { padding: 32px clamp(18px, 4vw, 48px) 64px; max-width: 1100px; }
+h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.015em; margin: 0 0 4px; }
+.lede { color: var(--ink-soft); margin: 0 0 28px; max-width: 64ch; }
+h2 { font-size: 18px; font-weight: 700; margin: 36px 0 12px; }
+h2:first-of-type { margin-top: 0; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 20px; }
+section[hidden] { display: none; }
+
+label { display: block; font-weight: 600; font-size: 13px; margin: 0 0 4px; }
+.hint { font-weight: 400; color: var(--ink-soft); }
+input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; }
+textarea { min-height: 76px; resize: vertical; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.field { margin-bottom: 14px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn { font: inherit; font-weight: 600; border-radius: 6px; padding: 8px 16px; cursor: pointer;
+  border: 1px solid var(--ink); background: var(--ink); color: var(--paper); }
+.btn.quiet { background: transparent; color: var(--ink); border-color: var(--rule); }
+.btn.approve { background: var(--teal); border-color: var(--teal); color: #fff; }
+.btn.reject { background: transparent; color: var(--red); border-color: var(--red); }
+.btn:disabled { opacity: .5; cursor: wait; }
+.msg { font-size: 14px; margin-top: 10px; }
+.msg.ok { color: var(--teal); } .msg.err { color: var(--red); }
+
+.queue { display: grid; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px; }
+.card-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+.term { font-size: 20px; font-weight: 700; }
+.tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: var(--paper); border: 1px solid var(--rule); white-space: nowrap; }
+.tag.ai { background: var(--teal-soft); border-color: transparent; color: var(--teal); }
+.tag.high { background: var(--red-soft); color: var(--red); border-color: transparent; }
+.tag.medium { background: var(--marigold-soft); border-color: transparent; }
+.quote { border-left: 3px solid var(--rule); padding: 2px 0 2px 12px; color: var(--ink-soft); margin: 0 0 16px; font-size: 14px; }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 13px; color: var(--ink-soft); font-weight: 600; background: var(--paper); }
+tr:last-child td { border-bottom: 0; }
+.excerpt { max-width: 34ch; }
+.hash { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); }
+.empty { color: var(--ink-soft); padding: 18px; }
+
+/* The one loud element: a spike alert */
+.alert { position: relative; background: var(--marigold-soft); border: 1px solid var(--marigold);
+  border-radius: 8px; padding: 18px 18px 18px 26px; margin-bottom: 12px; overflow: hidden; }
+.alert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 8px;
+  background: repeating-linear-gradient(180deg, var(--marigold) 0 10px, var(--ink) 10px 14px); }
+.alert.seen { opacity: .6; }
+.alert-title { font-weight: 800; font-size: 17px; margin: 0 0 4px; }
+.alert-meta { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
+.alert.new { animation: arrive .5s ease-out; }
+@keyframes arrive { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .alert.new { animation: none; } }
+
+.leader { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+.leader-count { text-align: right; }
+.leader-count strong { font-size: 26px; display: block; line-height: 1; }
+.leader-count span { font-size: 12px; color: var(--ink-soft); }
+.small { font-size: 13px; color: var(--ink-soft); }
+
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; padding: 16px; }
+  .brand-sub, .weave { display: none; }
+  .nav { display: flex; overflow-x: auto; gap: 4px; }
+  .nav button { white-space: nowrap; width: auto; }
+  .ai-state { margin-top: 10px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <p class="brand">Kalasag</p>
+    <p class="brand-sub">Partner dashboard · Philippines pilot</p>
+    <div class="weave" aria-hidden="true"></div>
+    <nav class="nav" aria-label="Sections">
+      <button data-tab="words" aria-current="page">Word database <span class="count" id="pending-count" hidden></span></button>
+      <button data-tab="alerts">Leaders and alerts <span class="count" id="alert-count" hidden></span></button>
+      <button data-tab="reports">Reports</button>
+      <button data-tab="incidents">Incidents</button>
+    </nav>
+    <p class="ai-state"><span class="ai-dot" id="ai-dot"></span><span id="ai-text">Checking AI…</span></p>
+  </aside>
+
+  <main>
+    <!-- WORD DATABASE -->
+    <section id="tab-words">
+      <h1>Word database</h1>
+      <p class="lede">Communities suggest terms used to attack women leaders. A verified partner checks each one before the browser extension starts flagging it.</p>
+
+      <h2>Suggest a word</h2>
+      <form class="panel" id="suggest-form">
+        <div class="grid">
+          <div class="field"><label for="s-term">Word or phrase</label><input id="s-term" required></div>
+          <div class="field"><label for="s-lang">Language</label><select id="s-lang"></select></div>
+          <div class="field"><label for="s-country">Country</label>
+            <select id="s-country"><option value="PH">Philippines</option><option value="AU">Australia</option></select></div>
+        </div>
+        <div class="field"><label for="s-expl">What does it mean, and how is it used? <span class="hint">Your own words are fine.</span></label>
+          <textarea id="s-expl" required></textarea></div>
+        <div class="field"><label for="s-who">Your organization <span class="hint">optional</span></label><input id="s-who"></div>
+        <button class="btn" type="submit">Send for review</button>
+        <p class="msg" id="suggest-msg" role="status"></p>
+      </form>
+
+      <h2>Waiting for review</h2>
+      <div class="field" style="max-width:320px"><label for="reviewer">Reviewing as</label>
+        <input id="reviewer" placeholder="Your name and organization" value="Demo reviewer, UN Women PH"></div>
+      <div class="queue" id="queue"></div>
+
+      <h2>Live in the extension</h2>
+      <p class="small">This is what the extension downloads: <a href="/api/lexicon?country=PH" target="_blank">view the JSON feed</a>.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Term</th><th>Language</th><th>Category</th><th>Severity</th><th>Spelling variants</th></tr></thead>
+        <tbody id="lexicon-body"></tbody></table></div>
+    </section>
+
+    <!-- ALERTS -->
+    <section id="tab-alerts" hidden>
+      <h1>Leaders and alerts</h1>
+      <p class="lede">Leaders who opt in are alerted when reports about them spike well above their usual level, ideally before an event rather than after it.</p>
+      <div id="alerts-list"></div>
+
+      <h2>Registered leaders</h2>
+      <div class="queue" id="leaders-list"></div>
+      <p class="small" style="margin-top:12px">Demo tools: "Simulate a spike" adds 12 fake reports from the last hour. <button class="btn quiet" id="reset-demo" type="button">Reset demo reports and alerts</button></p>
+
+      <h2>Register a leader</h2>
+      <form class="panel" id="leader-form">
+        <div class="grid">
+          <div class="field"><label for="l-name">Full name and title</label><input id="l-name" required></div>
+          <div class="field"><label for="l-variants">Other names used online <span class="hint">comma-separated</span></label><input id="l-variants" placeholder="Nicknames, surname only…"></div>
+          <div class="field"><label for="l-org">Supporting organization</label><input id="l-org"></div>
+          <div class="field"><label for="l-contact">Alert contact</label><input id="l-contact" type="email"></div>
+        </div>
+        <div class="grid">
+          <div class="field"><label for="l-event">Upcoming event <span class="hint">optional</span></label><input id="l-event"></div>
+          <div class="field"><label for="l-date">Event date</label><input id="l-date" type="date"></div>
+          <div class="field"><label for="l-loc">Location</label><input id="l-loc"></div>
+        </div>
+        <button class="btn" type="submit">Register leader</button>
+        <p class="msg" id="leader-msg" role="status"></p>
+      </form>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="tab-reports" hidden>
+      <h1>Reports</h1>
+      <p class="lede">Everything saved as evidence from the browser extension, newest first. Screenshots are fingerprinted (SHA-256) when they arrive, so any later change to the file can be detected.</p>
+      <div class="row" style="margin-bottom:12px"><button class="btn quiet" id="refresh-reports" type="button">Refresh</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Received</th><th>About</th><th>Category</th><th>Platform</th><th>Content</th><th>Evidence</th></tr></thead>
+        <tbody id="reports-body"></tbody></table></div>
+    </section>
+
+    <!-- INCIDENTS -->
+    <section id="tab-incidents" hidden>
+      <h1>Incidents</h1>
+      <p class="lede">A private record of what happened, before or after an event. Every file is timestamped and fingerprinted so it can be used as evidence later.</p>
+      <form class="panel" id="incident-form">
+        <div class="grid">
+          <div class="field"><label for="i-leader">Leader</label><select id="i-leader"></select></div>
+          <div class="field"><label for="i-when">When it happened</label><input id="i-when" type="datetime-local"></div>
+        </div>
+        <div class="field"><label for="i-desc">What happened</label><textarea id="i-desc" required></textarea></div>
+        <div class="field"><label for="i-wit">Witnesses <span class="hint">names or contact details</span></label><input id="i-wit"></div>
+        <div class="field"><label for="i-files">Photos, screenshots or voice notes</label><input id="i-files" type="file" multiple accept="image/*,audio/*,application/pdf"></div>
+        <button class="btn" type="submit">Save incident</button>
+        <p class="msg" id="incident-msg" role="status"></p>
+      </form>
+      <h2>Saved incidents</h2>
+      <div class="queue" id="incidents-list"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const state = { categories: {}, languages: {}, severities: [], leaders: [], seenAlertIds: new Set() };
+
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+
+async function api(path, options = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body) });
+function say(el, text, ok = true) { el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); }
+
+// ---------- tabs
+document.querySelectorAll(".nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+function showTab(name) {
+  document.querySelectorAll(".nav button").forEach((b) => {
+    if (b.dataset.tab === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+  document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
+  ({ words: loadWords, alerts: loadAlerts, reports: loadReports, incidents: loadIncidents })[name]();
+}
+
+// ---------- status
+async function loadStatus() {
+  const s = await api("/api/status");
+  Object.assign(state, { categories: s.categories, languages: s.languages, severities: s.severities });
+  $("#ai-dot").classList.toggle("on", s.ai_enabled);
+  $("#ai-text").textContent = s.ai_enabled ? "AI drafting on" : "AI drafting off (no key)";
+  $("#s-lang").innerHTML = Object.entries(s.languages).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+}
+const catOptions = (sel) => Object.entries(state.categories)
+  .map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(v)}</option>`).join("");
+const sevOptions = (sel) => state.severities.map((s) => `<option ${s === sel ? "selected" : ""}>${s}</option>`).join("");
+
+// ---------- words
+async function loadWords() {
+  const [pending, lex] = await Promise.all([api("/api/submissions?status=pending"), api("/api/lexicon")]);
+  const pc = $("#pending-count"); pc.hidden = !pending.length; pc.textContent = pending.length;
+
+  $("#queue").innerHTML = pending.length ? pending.map((e) => `
+    <article class="card" data-id="${e.id}">
+      <div class="card-head">
+        <span class="term">${esc(e.term)}</span>
+        <span class="row">
+          <span class="tag">${esc(state.languages[e.language] || e.language)} · ${esc(e.country)}</span>
+          <span class="tag ${e.ai_drafted ? "ai" : ""}">${e.ai_drafted ? "AI draft, please check" : "Manual draft"}</span>
+        </span>
+      </div>
+      <p class="quote">“${esc(e.raw_submission)}” <br><span class="small">Sent by ${esc(e.submitted_by || "anonymous")}, ${when(e.created_at)}</span></p>
+      <div class="field"><label>Meaning</label><textarea data-f="meaning">${esc(e.meaning)}</textarea></div>
+      <div class="grid">
+        <div class="field"><label>Category</label><select data-f="category">${catOptions(e.category)}</select></div>
+        <div class="field"><label>Severity</label><select data-f="severity">${sevOptions(e.severity)}</select></div>
+      </div>
+      <div class="field"><label>Spelling variants <span class="hint">comma-separated</span></label><input data-f="variants" value="${esc(e.variants.join(", "))}"></div>
+      <div class="field"><label>When is it harmful, and when is it neutral?</label><textarea data-f="context_note">${esc(e.context_note)}</textarea></div>
+      <div class="row">
+        <button class="btn approve" data-act="approve" type="button">Approve and publish</button>
+        <button class="btn reject" data-act="reject" type="button">Reject</button>
+      </div>
+      <p class="msg" role="status"></p>
+    </article>`).join("") : `<div class="panel empty">Nothing waiting. New suggestions appear here.</div>`;
+
+  $("#lexicon-body").innerHTML = lex.entries.length ? lex.entries.map((e) => `
+    <tr><td><strong>${esc(e.term)}</strong><div class="small">${esc(e.meaning)}</div></td>
+      <td>${esc(state.languages[e.language] || e.language)}</td>
+      <td>${esc(e.category_label)}</td>
+      <td><span class="tag ${esc(e.severity)}">${esc(e.severity)}</span></td>
+      <td class="small">${esc(e.variants.join(", "))}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">No approved words yet.</td></tr>`;
+}
+
+$("#queue").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-act]"); if (!btn) return;
+  const card = btn.closest(".card"), msg = card.querySelector(".msg");
+  const body = { reviewer: $("#reviewer").value.trim() };
+  card.querySelectorAll("[data-f]").forEach((el) => (body[el.dataset.f] = el.value));
+  if (!body.reviewer) return say(msg, "Add your name under 'Reviewing as' first.", false);
+  btn.disabled = true;
+  try {
+    await post(`/api/submissions/${card.dataset.id}/${btn.dataset.act}`, body);
+    await loadWords();
+  } catch (e) { say(msg, e.message, false); btn.disabled = false; }
+});
+
+$("#suggest-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = ev.submitter, msg = $("#suggest-msg");
+  btn.disabled = true; say(msg, "Sending… drafting the entry can take a few seconds.");
+  try {
+    const e = await post("/api/submissions", {
+      term: $("#s-term").value, language: $("#s-lang").value, country: $("#s-country").value,
+      explanation: $("#s-expl").value, submitted_by: $("#s-who").value || "anonymous" });
+    say(msg, e.ai_drafted ? "Sent. The AI drafted an entry; it's waiting for review below." : "Sent. It's waiting for review below.");
+    ev.target.reset(); await loadWords();
+  } catch (e) { say(msg, e.message, false); }
+  btn.disabled = false;
+});
+
+// ---------- leaders and alerts
+async function loadAlerts() {
+  const [alerts, leaders] = await Promise.all([api("/api/alerts"), api("/api/leaders")]);
+  state.leaders = leaders;
+  const unseen = alerts.filter((a) => !a.seen).length;
+  const ac = $("#alert-count"); ac.hidden = !unseen; ac.textContent = unseen;
+
+  $("#alerts-list").innerHTML = alerts.map((a) => {
+    const fresh = !a.seen && !state.seenAlertIds.has(a.id); state.seenAlertIds.add(a.id);
+    return `<div class="alert ${a.seen ? "seen" : ""} ${fresh ? "new" : ""}">
+      <p class="alert-title">Spike in reports about ${esc(a.leader_name)}</p>
+      <p class="alert-meta">${when(a.created_at)} · ${a.count_24h} reports in 24 hours, usually ${a.baseline_per_day} a day</p>
+      <p style="margin:0 0 12px">${esc(a.summary)}</p>
+      ${a.seen ? `<span class="small">Seen</span>` : `<button class="btn quiet" data-seen="${a.id}" type="button">Mark as seen</button>`}
+    </div>`; }).join("") || `<div class="panel empty">No alerts. When reports about a registered leader spike, an alert appears here and goes to her team.</div>`;
+
+  $("#leaders-list").innerHTML = leaders.map((l) => `
+    <article class="card leader">
+      <div>
+        <div class="term">${esc(l.name)}</div>
+        <div class="small">Also called: ${esc(l.name_variants.join(", ") || "none listed")}</div>
+        <div class="small">Supported by ${esc(l.organization || "no organization")} · alerts to ${esc(l.alert_contact || "not set")}</div>
+        ${l.events.map((e) => `<div style="margin-top:8px"><span class="tag">Upcoming</span> ${esc(e.name)}, ${esc(e.event_date || "date TBC")}${e.location ? ", " + esc(e.location) : ""}</div>`).join("")}
+        <button class="btn quiet" style="margin-top:12px" data-spike="${l.id}" type="button">Simulate a spike</button>
+      </div>
+      <div class="leader-count"><strong>${l.reports_24h}</strong><span>reports, last 24h</span></div>
+    </article>`).join("");
+}
+
+$("#alerts-list").addEventListener("click", async (ev) => {
+  const id = ev.target.dataset.seen; if (!id) return;
+  await post(`/api/alerts/${id}/seen`, {}); loadAlerts();
+});
+$("#leaders-list").addEventListener("click", async (ev) => {
+  const id = ev.target.dataset.spike; if (!id) return;
+  ev.target.disabled = true; ev.target.textContent = "Adding reports…";
+  try {
+    const r = await post("/api/demo/inject", { leader_id: Number(id), count: 12 });
+    if (!r.alert_triggered) ev.target.textContent = "Added. No new alert (one fired in the last 6 hours).";
+  } catch (e) { alert(e.message); }
+  loadAlerts();
+});
+$("#reset-demo").addEventListener("click", async () => { await post("/api/demo/reset", {}); state.seenAlertIds.clear(); loadAlerts(); });
+
+$("#leader-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  try {
+    await post("/api/leaders", { name: $("#l-name").value, name_variants: $("#l-variants").value,
+      organization: $("#l-org").value, alert_contact: $("#l-contact").value,
+      event_name: $("#l-event").value, event_date: $("#l-date").value, event_location: $("#l-loc").value });
+    say($("#leader-msg"), "Leader registered."); ev.target.reset(); loadAlerts();
+  } catch (e) { say($("#leader-msg"), e.message, false); }
+});
+
+// ---------- reports
+async function loadReports() {
+  const rows = await api("/api/reports?limit=150");
+  $("#reports-body").innerHTML = rows.length ? rows.map((r) => `
+    <tr><td class="small">${when(r.created_at)}</td>
+      <td>${esc(r.leader_name || "Not matched")}</td>
+      <td>${esc(state.categories[r.category] || r.category)}${r.term ? `<div class="small">matched “${esc(r.term)}”</div>` : ""}</td>
+      <td>${esc(r.platform)}</td>
+      <td class="excerpt">${esc(r.context_text || r.matched_text)}${r.url ? `<div class="small"><a href="${esc(r.url)}" target="_blank" rel="noopener">source link</a></div>` : ""}</td>
+      <td>${r.screenshot_file ? `<a href="/evidence/${esc(r.screenshot_file)}" target="_blank">screenshot</a><div class="hash" title="${esc(r.screenshot_sha256)}">${esc(r.screenshot_sha256.slice(0, 12))}…</div>` : `<span class="small">none</span>`}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">No reports yet. They arrive when someone clicks "Save as evidence" in the extension.</td></tr>`;
+}
+$("#refresh-reports").addEventListener("click", loadReports);
+
+// ---------- incidents
+async function loadIncidents() {
+  if (!state.leaders.length) state.leaders = await api("/api/leaders");
+  $("#i-leader").innerHTML = `<option value="">Not linked to a leader</option>` +
+    state.leaders.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join("");
+  const rows = await api("/api/incidents");
+  $("#incidents-list").innerHTML = rows.length ? rows.map((i) => `
+    <article class="card">
+      <div class="card-head"><strong>${esc(i.leader_name || "Not linked to a leader")}</strong>
+        <span class="small">Happened ${esc(i.occurred_at ? when(i.occurred_at) : "time not given")} · saved ${when(i.created_at)}</span></div>
+      <p style="margin:0 0 8px">${esc(i.description)}</p>
+      ${i.witnesses ? `<p class="small">Witnesses: ${esc(i.witnesses)}</p>` : ""}
+      ${i.files.map((f) => `<div class="small"><a href="/evidence/${esc(f.file)}" target="_blank">${esc(f.name)}</a> <span class="hash">sha256 ${esc(f.sha256.slice(0, 16))}…</span></div>`).join("")}
+    </article>`).join("") : `<div class="panel empty">No incidents recorded yet.</div>`;
+}
+
+const readFile = (file) => new Promise((ok, fail) => {
+  const r = new FileReader(); r.onload = () => ok({ name: file.name, data_b64: r.result }); r.onerror = fail; r.readAsDataURL(file);
+});
+$("#incident-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = ev.submitter; btn.disabled = true;
+  try {
+    const files = await Promise.all([...$("#i-files").files].slice(0, 10).map(readFile));
+    const whenVal = $("#i-when").value;
+    const r = await post("/api/incidents", { leader_id: $("#i-leader").value ? Number($("#i-leader").value) : null,
+      occurred_at: whenVal ? new Date(whenVal).toISOString() : null,
+      description: $("#i-desc").value, witnesses: $("#i-wit").value, files });
+    say($("#incident-msg"), `Incident saved with ${r.files.length} file(s) fingerprinted.`);
+    ev.target.reset(); loadIncidents();
+  } catch (e) { say($("#incident-msg"), e.message, false); }
+  btn.disabled = false;
+});
+
+// ---------- start
+loadStatus().then(loadWords).then(() => api("/api/alerts")).then((a) => {
+  const unseen = a.filter((x) => !x.seen).length; const ac = $("#alert-count"); ac.hidden = !unseen; ac.textContent = unseen;
+}).catch((e) => { document.querySelector("main").insertAdjacentHTML("afterbegin", `<p class="msg err">Can't reach the server: ${esc(e.message)}. Is app.py running?</p>`); });
+</script>
+</body>
+</html>
