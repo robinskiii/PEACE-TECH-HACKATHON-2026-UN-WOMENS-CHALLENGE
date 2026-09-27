@@ -153,6 +153,14 @@ tr:last-child td { border-bottom: 0; }
 .alert.new { animation: arrive .6s cubic-bezier(.2,1.4,.4,1); }
 @keyframes arrive { from { transform: translateY(-10px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
 
+.review { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; }
+.review .shot { display: block; align-self: start; border-radius: 12px; overflow: hidden; border: 2px solid var(--rule); background: var(--paper); }
+.review .shot img { display: block; width: 100%; height: 170px; object-fit: cover; object-position: top; }
+.review .shot span { display: block; font-size: 12px; padding: 4px 8px; color: var(--ink-soft); }
+.review .said { font-size: 17px; font-weight: 700; margin: 0 0 6px; }
+.note { background: var(--blue-soft); border-radius: 12px; padding: 8px 12px; font-size: 14px; margin: 0 0 12px; }
+.src { font-size: 12px; color: var(--ink-soft); }
+@media (max-width: 760px) { .review { grid-template-columns: 1fr; } }
 .leader { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
 .leader-count { text-align: right; }
 .leader-count strong { font-family: var(--chalk); font-weight: 400; font-size: 34px; display: block; line-height: 1; color: var(--pink-deep); }
@@ -255,7 +263,7 @@ details.table-view .table-wrap { margin-top: 8px; max-height: 260px; overflow: a
       <button data-tab="trends" aria-current="page"><span class="ico" aria-hidden="true">📈</span>Trends</button>
       <button data-tab="words"><span class="ico" aria-hidden="true">📖</span>Word database <span class="count" id="pending-count" hidden></span></button>
       <button data-tab="alerts"><span class="ico" aria-hidden="true">🔔</span>Leaders and alerts <span class="count" id="alert-count" hidden></span></button>
-      <button data-tab="reports"><span class="ico" aria-hidden="true">🗂️</span>Reports</button>
+      <button data-tab="reports"><span class="ico" aria-hidden="true">🗂️</span>Reports <span class="count" id="review-count" hidden></span></button>
       <button data-tab="incidents"><span class="ico" aria-hidden="true">📝</span>Incidents</button>
     </nav>
     <p class="ai-state"><span class="ai-dot" id="ai-dot"></span><span id="ai-text">Checking AI…</span></p>
@@ -367,8 +375,16 @@ details.table-view .table-wrap { margin-top: 8px; max-height: 260px; overflow: a
     <!-- REPORTS -->
     <section id="tab-reports" hidden>
       <h1>Reports</h1>
-      <p class="lede">Everything saved as evidence from the browser extension, newest first. Screenshots are fingerprinted (SHA-256) when they arrive, so any later change to the file can be detected.</p>
+      <p class="lede">Everything saved as evidence from the browser extension. Screenshots carry the page address and time, and are fingerprinted (SHA-256) when they arrive, so any later change to the file can be detected.</p>
       <div class="row" style="margin-bottom:12px"><button class="btn quiet" id="refresh-reports" type="button">Refresh</button></div>
+
+      <h2>Waiting for review</h2>
+      <p class="small" style="margin:-4px 0 12px;max-width:70ch">Text people highlighted themselves, and posts only the AI found. They count in Trends, alerts and the list below only after an expert approves them.</p>
+      <div class="field" style="max-width:320px"><label for="r-reviewer">Reviewing as</label>
+        <input id="r-reviewer" placeholder="Your name and organization" value="Demo reviewer, UN Women PH"></div>
+      <div class="queue" id="review-queue"></div>
+
+      <h2>Approved reports</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Received</th><th>About</th><th>Category</th><th>Platform</th><th>Content</th><th>Evidence</th></tr></thead>
         <tbody id="reports-body"></tbody></table></div>
@@ -427,6 +443,7 @@ async function loadStatus() {
   Object.assign(state, { categories: s.categories, languages: s.languages, severities: s.severities });
   $("#ai-dot").classList.toggle("on", s.ai_enabled);
   $("#ai-text").textContent = s.ai_enabled ? "AI drafting on" : "AI drafting off (no key)";
+  const rc = $("#review-count"); rc.hidden = !s.reports_pending; rc.textContent = s.reports_pending || "";
   $("#s-lang").innerHTML = Object.entries(s.languages).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
 }
 const catOptions = (sel) => Object.entries(state.categories)
@@ -553,12 +570,62 @@ $("#leader-form").addEventListener("submit", async (ev) => {
 });
 
 // ---------- reports
+const SOURCE_LABEL = { word_list: "Matched the word list", ai: "Found by the AI check", highlight: "Highlighted by a person" };
+async function loadReviewQueue() {
+  if (!state.leaders.length) state.leaders = await api("/api/leaders");
+  const rows = await api("/api/reports?status=pending&limit=100");
+  const rc = $("#review-count"); rc.hidden = !rows.length; rc.textContent = rows.length;
+  const leaderOptions = (sel) => `<option value="">Not about a registered leader</option>` +
+    state.leaders.map((l) => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.name)}</option>`).join("");
+  $("#review-queue").innerHTML = rows.length ? rows.map((r) => `
+    <article class="card review" data-id="${r.id}">
+      <div>
+        <div class="card-head">
+          <span class="tag">${esc(SOURCE_LABEL[r.source] || r.source)}</span>
+          <span class="small">${when(r.created_at)} · ${esc(r.platform)} · reporter: ${esc(r.reporter_role || "not given")}</span>
+        </div>
+        <p class="said">“${esc(r.matched_text)}”</p>
+        ${r.context_text && r.context_text !== r.matched_text ? `<p class="quote">${esc(r.context_text.slice(0, 400))}</p>` : ""}
+        ${r.reporter_note ? `<p class="note"><strong>Reporter's note:</strong> ${esc(r.reporter_note)}</p>` : ""}
+        <div class="grid">
+          <div class="field"><label>Category</label><select data-f="category">${catOptions(r.category)}</select></div>
+          <div class="field"><label>About</label><select data-f="leader_id">${leaderOptions(r.leader_id)}</select></div>
+        </div>
+        <div class="row">
+          <button class="btn approve" data-act="approve" type="button">Approve, count it</button>
+          <button class="btn reject" data-act="reject" type="button">Reject</button>
+          ${r.url ? `<a class="src" href="${esc(r.url)}" target="_blank" rel="noopener">Open the original page</a>` : ""}
+        </div>
+        <p class="msg" role="status"></p>
+      </div>
+      ${r.screenshot_file ? `<a class="shot" href="/evidence/${esc(r.screenshot_file)}" target="_blank" title="Open the full screenshot">
+          <img src="/evidence/${esc(r.screenshot_file)}" alt="Screenshot of the reported page" loading="lazy">
+          <span class="hash">sha256 ${esc(r.screenshot_sha256.slice(0, 16))}…</span></a>`
+        : `<div class="small">No screenshot</div>`}
+    </article>`).join("") : `<div class="panel empty">Nothing waiting. Highlighted reports from the extension appear here.</div>`;
+}
+$("#review-queue").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-act]"); if (!btn) return;
+  const card = btn.closest(".card"), msg = card.querySelector(".msg");
+  const body = { reviewer: $("#r-reviewer").value.trim() };
+  if (!body.reviewer) return say(msg, "Add your name under 'Reviewing as' first.", false);
+  card.querySelectorAll("[data-f]").forEach((el) => (body[el.dataset.f] = el.value));
+  btn.disabled = true;
+  try {
+    const r = await post(`/api/reports/${card.dataset.id}/${btn.dataset.act}`, body);
+    if (r.alert_triggered) state.seenAlertIds.delete(r.alert_triggered.id);
+    await loadReports();
+  } catch (e) { say(msg, e.message, false); btn.disabled = false; }
+});
+
 async function loadReports() {
+  loadReviewQueue();
   const rows = await api("/api/reports?limit=150");
   $("#reports-body").innerHTML = rows.length ? rows.map((r) => `
     <tr><td class="small">${when(r.created_at)}</td>
       <td>${esc(r.leader_name || "Not matched")}</td>
-      <td>${esc(state.categories[r.category] || r.category)}${r.term ? `<div class="small">matched “${esc(r.term)}”</div>` : ""}</td>
+      <td>${esc(state.categories[r.category] || r.category)}${r.term ? `<div class="small">matched “${esc(r.term)}”</div>` : ""}
+        <div class="small">${esc(SOURCE_LABEL[r.source] || "")}${r.reviewed_by ? ` · approved by ${esc(r.reviewed_by)}` : ""}</div></td>
       <td>${esc(r.platform)}</td>
       <td class="excerpt">${esc(r.context_text || r.matched_text)}${r.url ? `<div class="small"><a href="${esc(r.url)}" target="_blank" rel="noopener">source link</a></div>` : ""}</td>
       <td>${r.screenshot_file ? `<a href="/evidence/${esc(r.screenshot_file)}" target="_blank">screenshot</a><div class="hash" title="${esc(r.screenshot_sha256)}">${esc(r.screenshot_sha256.slice(0, 12))}…</div>` : `<span class="small">none</span>`}</td></tr>`).join("")
