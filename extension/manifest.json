@@ -6,6 +6,7 @@
   "permissions": [
     "storage",
     "tabs",
+    "scripting",
     "unlimitedStorage",
     "contextMenus"
   ],
@@ -19,7 +20,8 @@
     {
       "matches": [
         "http://*/*",
-        "https://*/*"
+        "https://*/*",
+        "file:///*"
       ],
       "js": [
         "shared.js",

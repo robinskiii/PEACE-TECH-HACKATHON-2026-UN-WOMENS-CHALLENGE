@@ -1,11 +1,12 @@
 # Kalasag: data-gathering website (demo)
 
-Runs on plain Python 3.9+, nothing to install.
+Runs on Python 3.9+ with one small HTTPS certificate dependency.
 
 ## Run it
 
 ```bash
 cd website
+python -m pip install -r requirements.txt
 python app.py
 ```
 

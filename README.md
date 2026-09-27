@@ -9,7 +9,7 @@ Kalasag has two parts:
 
 ## Quick start
 
-1. Start the website: `cd website` then `python app.py` (Python 3.9+, nothing to install). Open http://localhost:8000.
+1. Start the website: `cd website`, run `python -m pip install -r requirements.txt` once, then `python app.py`. Open http://localhost:8000.
 2. Install the extension: `chrome://extensions` → Developer mode → Load unpacked → choose the `extension` folder.
 3. In the extension settings, add the AI keys and click "Save and download word list".
 4. Open http://localhost:8000/test-feed and http://localhost:8000/test-article.

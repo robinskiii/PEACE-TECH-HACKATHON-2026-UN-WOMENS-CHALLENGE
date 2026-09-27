@@ -7,14 +7,17 @@ Two interchangeable backends with the same methods:
   * SQLiteStore:   a local file, kalasag.db. Used when Supabase isn't set up,
     e.g. offline. Only the computer running app.py sees this data.
 
-Only the Python standard library is used, so there is still nothing to install.
+HTTPS requests use certifi's maintained certificate bundle.
 """
 import json
 import os
 import sqlite3
+import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+
+import certifi
 
 
 # =====================================================================
@@ -23,6 +26,16 @@ import urllib.request
 
 class SupabaseError(Exception):
     pass
+
+
+# The macOS Python.org installer can be present without its CA certificates
+# configured. This keeps HTTPS verification enabled with certifi's current bundle.
+_HTTPS_CONTEXT = ssl.create_default_context(cafile=certifi.where())
+
+
+def https_context():
+    """Return the shared certificate-verifying HTTPS context."""
+    return _HTTPS_CONTEXT
 
 
 class SupabaseStore:
@@ -52,7 +65,7 @@ class SupabaseStore:
         h.update(headers or {})
         req = urllib.request.Request(self.url + path + query, data=data, method=method, headers=h)
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=20, context=https_context()) as resp:
                 content = resp.read()
                 if want_raw:
                     return content, resp.headers
@@ -60,6 +73,8 @@ class SupabaseStore:
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:400]
             raise SupabaseError(f"Supabase {method} {path} failed ({e.code}): {detail}") from None
+        except urllib.error.URLError as e:
+            raise SupabaseError(f"Can't reach Supabase: {e.reason}") from None
 
     def _select(self, table, **params):
         return self._request("GET", f"/rest/v1/{table}", params) or []

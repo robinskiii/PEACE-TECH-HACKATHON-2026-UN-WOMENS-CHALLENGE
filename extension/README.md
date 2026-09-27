@@ -10,7 +10,7 @@ Flags content that targets women and women leaders on any website, explains why,
 4. Start the website (`python app.py` in the `kalasag` folder) and click **Save and download word list**.
 5. Pin the Kalasag icon to the toolbar.
 
-After changing any code, click the reload icon on the extension's card in `chrome://extensions`, then refresh the page you're testing.
+After changing any code, click the reload icon on the extension's card in `chrome://extensions`. Kalasag can attach itself when you next open its toolbar popup on `localhost` or another locally served page; refreshing the page also works. To scan a `file://` page, open Kalasag's **Details** page in `chrome://extensions` and enable **Allow access to file URLs**.
 
 ## How it works
 

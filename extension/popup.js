@@ -5,6 +5,33 @@ function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.
 const sendBg = (msg) => new Promise((r) => chrome.runtime.sendMessage(msg, (res) => r(res || { ok: false, error: chrome.runtime.lastError?.message })));
 const sendTab = (msg) => new Promise((r) => chrome.tabs.sendMessage(tab.id, msg, (res) => r(chrome.runtime.lastError ? null : res)));
 
+function isLocalPage(url) {
+  try {
+    const page = new URL(url);
+    return page.protocol === "file:" || page.hostname === "localhost" ||
+      page.hostname === "127.0.0.1" || page.hostname === "[::1]" || page.hostname.endsWith(".localhost");
+  } catch {
+    return false;
+  }
+}
+
+async function stateForTab() {
+  let state = tab ? await sendTab({ type: "tab:state" }) : null;
+  if (state || !tab || !isLocalPage(tab.url)) return state;
+
+  // A declared content script only starts on a page navigation. Attach it here
+  // when a local page was already open as the extension was reloaded.
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id }, files: ["shared.js", "content.js"],
+    });
+    state = await sendTab({ type: "tab:state" });
+  } catch (e) {
+    console.warn("Couldn't attach Kalasag to this local page:", e.message);
+  }
+  return state;
+}
+
 async function saveSettings(patch) {
   const s = await kalasagSettings();
   await chrome.storage.local.set({ settings: { ...s, ...patch } });
@@ -20,10 +47,15 @@ async function render() {
   $("#enabled").checked = s.enabled;
   const page = $("#page");
   page.replaceChildren();
-  const st = tab ? await sendTab({ type: "tab:state" }) : null;
+  const st = await stateForTab();
 
   if (!st) {
-    page.append(el("p", "muted", "Kalasag can't read this page. It works on normal websites, not browser pages or the Web Store. If you just installed or reloaded the extension, refresh the page."));
+    const localHint = tab?.url?.startsWith("file:")
+      ? " Enable ‘Allow access to file URLs’ on Kalasag’s chrome://extensions details page."
+      : tab && isLocalPage(tab.url)
+      ? " Reload Kalasag from chrome://extensions, then open this popup again."
+      : " It works on normal websites, not browser pages or the Web Store. If you just installed or reloaded the extension, refresh the page.";
+    page.append(el("p", "muted", "Kalasag can't read this page." + localHint));
     $("#rescan").disabled = true; $("#pause").disabled = true;
   } else {
     const flagsLine = el("p");

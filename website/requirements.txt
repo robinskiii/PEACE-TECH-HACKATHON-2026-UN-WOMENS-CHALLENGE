@@ -1,0 +1,2 @@
+# A current CA bundle for verified HTTPS requests on every supported Python install.
+certifi>=2024.2.2

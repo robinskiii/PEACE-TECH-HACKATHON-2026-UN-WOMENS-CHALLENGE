@@ -2,7 +2,7 @@
 """
 Kalasag demo backend: word database, reports, early-warning alerts, incident evidence.
 
-Uses only the Python standard library, so there is nothing to install.
+Uses Python plus the certifi CA bundle (install with requirements.txt).
 Run:   python app.py
 Open:  http://localhost:8000          (dashboard)
        http://localhost:8000/test-feed (fake social feed to test the extension on)
@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from store import SupabaseError, load_env_file, open_store
+from store import SupabaseError, https_context, load_env_file, open_store
 
 HOST, PORT = "127.0.0.1", 8000
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -190,7 +190,7 @@ def call_claude(system, user_text, max_tokens=700):
         headers={"x-api-key": API_KEY, "anthropic-version": "2023-06-01",
                  "content-type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=40) as resp:
+        with urllib.request.urlopen(req, timeout=40, context=https_context()) as resp:
             data = json.loads(resp.read())
         return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
     except urllib.error.HTTPError as e:
