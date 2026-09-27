@@ -161,40 +161,115 @@ function kalasagBuildUserMessage(page, items) {
 
 function kalasagParseJSON(text) {
   if (!text) return null;
-  let t = String(text).replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:json)?/gi, "");
-  const start = t.indexOf("{"), end = t.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  try { return JSON.parse(t.slice(start, end + 1)); } catch { return null; }
+  // Remove visible (and accidentally unclosed) reasoning before finding the answer.
+  const t = String(text).replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, "").trim();
+  const candidates = [t];
+  for (const match of t.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)) candidates.push(match[1]);
+
+  for (const candidate of candidates) {
+    for (let start = candidate.indexOf("{"); start >= 0; start = candidate.indexOf("{", start + 1)) {
+      let depth = 0, quoted = false, escaped = false;
+      for (let i = start; i < candidate.length; i++) {
+        const ch = candidate[i];
+        if (quoted) {
+          if (escaped) escaped = false;
+          else if (ch === "\\") escaped = true;
+          else if (ch === '"') quoted = false;
+          continue;
+        }
+        if (ch === '"') { quoted = true; continue; }
+        if (ch === "{") depth++;
+        if (ch === "}" && --depth === 0) {
+          try {
+            const parsed = JSON.parse(candidate.slice(start, i + 1));
+            if (parsed && Array.isArray(parsed.flagged)) return parsed;
+          } catch { /* Try the next balanced object. */ }
+          break;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function kalasagTextContent(content) {
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  // OpenAI-compatible providers may return content as typed parts instead of a string.
+  return content.map((part) => {
+    if (typeof part === "string") return part;
+    if (!part || typeof part !== "object") return "";
+    if (typeof part.text === "string") return part.text;
+    if (typeof part.text?.value === "string") return part.text.value;
+    if (typeof part.content === "string") return part.content;
+    return "";
+  }).join("").trim();
+}
+
+function kalasagResponseText(data) {
+  const choice = data?.choices?.[0];
+  const message = choice?.message;
+  return kalasagTextContent(message?.content) || kalasagTextContent(choice?.text) ||
+    kalasagTextContent(data?.output_text) ||
+    kalasagTextContent(data?.output?.[0]?.content);
+}
+
+function kalasagEmptyResponseDetail(data) {
+  const choice = data?.choices?.[0];
+  const reason = choice?.finish_reason || choice?.stop_reason || data?.status;
+  return reason ? `empty answer from the model (finish reason: ${reason})` : "empty answer from the model";
 }
 
 // Same logic as the team's Python ask(): try the shared key, then the team key; if both fail, throw the last error.
-async function kalasagCallModel(settings, messages, { maxTokens = 1500, timeoutMs = 60000 } = {}) {
+async function kalasagCallModel(settings, messages, { maxTokens = 1500, timeoutMs = 60000, jsonMode = false } = {}) {
   const keys = [["shared", settings.sharedKey], ["team", settings.teamKey]].filter(([, k]) => k && k.trim());
   if (!keys.length) throw new Error("No API key set. Add one in the extension settings.");
   const url = settings.aiBaseUrl.replace(/\/+$/, "") + "/chat/completions";
   let last = null;
   for (const [label, key] of keys) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, {
-        method: "POST", signal: ctrl.signal,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key.trim()}` },
-        body: JSON.stringify({ model: settings.model, messages, temperature: 0, max_tokens: maxTokens }),
-      });
-      if (!res.ok) {
-        const detail = (await res.text().catch(() => "")).slice(0, 200);
-        last = new Error(`${label} key: ${res.status} ${detail}`.trim());
-        continue;                                   // busy, refused or blocked: try the other key
+    let useJsonMode = jsonMode;
+    // DeepSeek enables hidden reasoning by default. It can consume the entire
+    // completion budget before a short JSON classification is emitted.
+    let disableThinking = jsonMode && /deepseek/i.test(settings.model);
+    // Some reasoning models use the small test budget before producing visible text.
+    // Retry one blank 200 response with enough room for a final answer.
+    while (true) {
+      const budgets = [maxTokens];
+      const retryBudget = Math.min(8192, Math.max(1024, maxTokens * 4));
+      if (retryBudget > maxTokens) budgets.push(retryBudget);
+      let formatRejected = false;
+      for (const budget of budgets) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+          const body = { model: settings.model, messages, temperature: 0, max_tokens: budget };
+          if (useJsonMode) body.response_format = { type: "json_object" };
+          if (disableThinking) body.thinking = { type: "disabled" };
+          const res = await fetch(url, {
+            method: "POST", signal: ctrl.signal,
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key.trim()}` },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const detail = (await res.text().catch(() => "")).slice(0, 200);
+            last = new Error(`${label} key: ${res.status} ${detail}`.trim());
+            formatRejected = (useJsonMode || disableThinking) && [400, 404, 422].includes(res.status);
+            break;                                  // retry without an unsupported capability, or try the other key
+          }
+          const data = await res.json();
+          const text = kalasagResponseText(data);
+          if (text) return { text, keyUsed: label };
+          last = new Error(`${label} key: ${kalasagEmptyResponseDetail(data)}`);
+        } catch (e) {
+          last = new Error(`${label} key: ${e.name === "AbortError" ? "timed out" : e.message}`);
+          break;
+        } finally {
+          clearTimeout(timer);
+        }
       }
-      const data = await res.json();
-      const text = data?.choices?.[0]?.message?.content;
-      if (!text) { last = new Error(`${label} key: empty answer from the model`); continue; }
-      return { text, keyUsed: label };
-    } catch (e) {
-      last = new Error(`${label} key: ${e.name === "AbortError" ? "timed out" : e.message}`);
-    } finally {
-      clearTimeout(timer);
+      if (!formatRejected) break;
+      if (disableThinking) { disableThinking = false; continue; }
+      useJsonMode = false;
     }
   }
   throw last;
@@ -208,5 +283,6 @@ async function kalasagSettings() {
 if (typeof module !== "undefined") {
   module.exports = { KALASAG_DEFAULTS, KALASAG_CATEGORIES, kalasagPlatformOf, kalasagIsExcluded, kalasagBuildMatchers,
     kalasagFindHints, kalasagLooksRelevant, kalasagHash, kalasagBuildUserMessage, kalasagParseJSON, kalasagCallModel,
+    kalasagTextContent, kalasagResponseText, kalasagEmptyResponseDetail,
     KALASAG_SYSTEM_PROMPT };
 }

@@ -101,7 +101,7 @@ const handlers = {
       const { text, keyUsed } = await kalasagCallModel(s, [
         { role: "system", content: KALASAG_SYSTEM_PROMPT },
         { role: "user", content: kalasagBuildUserMessage(msg.page, msg.items) },
-      ]);
+      ], { jsonMode: true, maxTokens: 2048 });
       const parsed = kalasagParseJSON(text);
       if (!parsed || !Array.isArray(parsed.flagged)) throw new Error("The model's answer wasn't valid JSON.");
       await setAIStatus({ ok: true, keyUsed });
@@ -115,7 +115,7 @@ const handlers = {
   async testAI() {
     const s = await kalasagSettings();
     const { text, keyUsed } = await kalasagCallModel(s,
-      [{ role: "user", content: "Reply with just the word OK." }], { maxTokens: 20, timeoutMs: 30000 });
+      [{ role: "user", content: "Reply with just the word OK." }], { maxTokens: 512, timeoutMs: 30000 });
     await setAIStatus({ ok: true, keyUsed });
     return { reply: text.trim().slice(0, 80), keyUsed };
   },
