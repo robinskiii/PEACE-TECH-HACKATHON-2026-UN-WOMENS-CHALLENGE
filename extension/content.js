@@ -369,7 +369,7 @@
       if (!box || openFlag !== flag) return;
       if (!res.ok) { box.replaceChildren(h("p", { class: "muted" }, "Legal information isn't available right now.")); return; }
       const info = res.info;
-      box.replaceChildren(
+      box.replaceChildren(...[                   // filter: replaceChildren would print "null" for empty parts
         h("h3", {}, `What the law says (${info.country})`),
         ...(info.laws || []).map((l) => h("div", { class: "law" }, h("strong", {}, l.name), h("span", { class: "muted" }, l.summary))),
         h("h3", {}, "How to report it"),
@@ -377,7 +377,7 @@
         (info.authorities || []).length ? h("p", { class: "muted", style: "margin-top:8px" }, "Authorities: ",
           ...info.authorities.flatMap((a, i) => [i ? ", " : "", h("a", { href: a.url, target: "_blank", rel: "noopener" }, a.name)])) : null,
         flag.category === "threat" && info.threat_note ? h("p", { class: "tip" }, info.threat_note) : null,
-      );
+      ].filter(Boolean));
     }
   }
 
