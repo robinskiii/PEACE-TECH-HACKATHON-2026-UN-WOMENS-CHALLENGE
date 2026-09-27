@@ -28,6 +28,12 @@ Extension ──► Website (app.py) ──► Supabase
 
 Screenshots and incident files go in the private storage bucket `evidence`.
 
+## Word list from the guide
+
+`word_list.json` holds every word from the team guide's table (32 entries), with its meaning, category, severity, source and country. Entries marked `"flag": false` are context signals (for example `misandry`, `incel`, emojis) that are kept for reference but not flagged on their own.
+
+The flagged words are added through the website like any other submission, then approved, so they show up in the extension's word list. The extension only downloads words for the country set in its options (Philippines for the pilot).
+
 ## Security
 
 - Row level security is on for every table, with no public rules. The publishable key can't read or change anything; only the secret key (on the website's computer) can.
