@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<!-- Test page for the Kalasag extension. Fictional mayor, fictional city, fictional address. -->
+<html lang="tl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUTANG NA NAMAN? Mayora hindi alam ang sariling budget | Totoong Balita PH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Figtree:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red:#d6001c; --red-d:#9e0014; --yel:#ffd400; --ink:#1a1a1a; --paper:#fff;
+  --wash:#eceef1; --muted:#65676b; --bubble:#f0f2f5; --line:#dcdfe4;
+  --disp:"Anton", Impact, "Arial Narrow Bold", sans-serif;
+  --body:"Figtree", "Helvetica Neue", Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--wash);color:var(--ink);font-family:var(--body);line-height:1.55}
+img,svg{max-width:100%;display:block}
+a{color:inherit}
+
+/* ticker */
+.ticker{background:var(--ink);color:var(--yel);font-weight:800;font-size:13px;overflow:hidden;white-space:nowrap}
+.ticker span{display:inline-block;padding:7px 0;animation:tick 38s linear infinite}
+@keyframes tick{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){.ticker span{animation:none;padding-left:16px}}
+
+/* masthead */
+.mast{background:var(--red);color:#fff;border-bottom:6px solid var(--yel)}
+.mast .in{max-width:1140px;margin:auto;padding:14px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{font-family:var(--disp);font-size:40px;letter-spacing:.5px;line-height:1;text-decoration:none}
+.brand small{display:block;font-family:var(--body);font-weight:600;font-size:12px;letter-spacing:0;opacity:.85;margin-top:4px}
+.nav{display:flex;gap:18px;margin-left:auto;font-weight:800;font-size:14px;flex-wrap:wrap}
+.nav a{text-decoration:none}
+.live{background:var(--yel);color:var(--ink);padding:2px 8px;border-radius:3px}
+
+.wrap{max-width:1140px;margin:22px auto;padding:0 18px;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:26px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+
+/* article */
+article{background:var(--paper);padding:26px 30px 30px;border-radius:4px}
+@media (max-width:600px){article{padding:18px}}
+.kicker{display:inline-block;background:var(--yel);font-weight:800;font-size:13px;padding:3px 10px;border-radius:2px}
+h1{font-family:var(--disp);font-weight:400;font-size:clamp(34px,5.6vw,58px);line-height:1.02;margin:12px 0 14px;letter-spacing:.3px}
+h1 .hl{background:var(--red);color:#fff;padding:0 8px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.byline{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px;margin-bottom:16px}
+.byline b{color:var(--ink)}
+.av{width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--yel);display:grid;place-items:center;font-weight:800;font-size:14px;flex:none}
+.sharebar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+.sharebar button{font:800 14px var(--body);border:0;border-radius:4px;padding:9px 14px;cursor:pointer;color:#fff;background:#1f5fd6}
+.sharebar button.alt{background:var(--red)}
+.sharebar .cnt{align-self:center;color:var(--muted);font-size:13px;font-weight:600}
+figure{margin:0 0 20px}
+figcaption{font-size:13px;color:var(--muted);margin-top:6px}
+.body p{font-size:18px;max-width:68ch;margin:0 0 16px}
+.body p strong{background:linear-gradient(transparent 58%, #ffe66b 58%)}
+.quote{border-left:8px solid var(--red);background:#fff5f5;padding:16px 18px;margin:0 0 18px;max-width:68ch}
+.quote q{font-family:var(--disp);font-weight:400;font-size:26px;line-height:1.15;display:block;quotes:"“" "”"}
+.quote cite{display:block;font-style:normal;font-weight:800;margin-top:8px}
+.quote .src{font-size:13px;color:var(--muted);font-weight:400}
+.alert{background:var(--ink);color:#fff;font-weight:800;padding:12px 16px;border-radius:4px;margin:0 0 18px;max-width:68ch}
+.alert em{color:var(--yel);font-style:normal}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tags a{font-size:13px;font-weight:700;text-decoration:none;background:var(--bubble);padding:4px 10px;border-radius:14px}
+
+/* reactions */
+.react{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 2px;margin:24px 0 8px;color:var(--muted);font-size:14px}
+.react .em{font-size:18px;letter-spacing:-3px;margin-right:8px}
+
+/* comments */
+.comments h2{font-family:var(--disp);font-weight:400;font-size:26px;margin:18px 0 6px}
+.sort{color:var(--muted);font-size:14px;font-weight:600;margin-bottom:14px}
+.c{display:flex;gap:10px;margin-bottom:14px}
+.c .av{width:36px;height:36px;font-size:13px;color:#fff}
+.bub{background:var(--bubble);border-radius:18px;padding:9px 14px;max-width:560px}
+.bub b{font-size:14px;display:block}
+.bub .t{font-size:15.5px;margin:1px 0 0}
+.meta{font-size:12.5px;color:var(--muted);font-weight:700;margin:4px 0 0 14px;display:flex;gap:14px}
+.reply{margin-left:46px}
+.top-fan{font-size:11px;font-weight:800;color:#1f5fd6;margin-left:4px}
+.label{display:none;margin:6px 0 0 14px;font:700 12px var(--body);padding:3px 8px;border-radius:4px;background:#222;color:#fff;width:fit-content}
+body.show-labels .label{display:block}
+.label.urgent{background:var(--red)}
+.label.legit{background:#2e7d32}
+
+/* sidebar */
+aside{display:flex;flex-direction:column;gap:18px}
+.box{background:var(--paper);border-radius:4px;padding:16px 18px}
+.box h3{font-family:var(--disp);font-weight:400;font-size:22px;margin:0 0 10px;border-bottom:4px solid var(--red);padding-bottom:6px}
+.trend{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none}
+.trend:last-child{border-bottom:0}
+.trend .n{font-family:var(--disp);font-size:30px;color:var(--red);line-height:1;min-width:24px}
+.trend p{margin:0;font-weight:800;font-size:15px;line-height:1.3}
+.trend small{color:var(--muted);font-weight:600;font-size:12px}
+.poll label{display:flex;gap:8px;align-items:center;padding:6px 0;font-weight:600}
+.poll .bar{height:8px;background:var(--bubble);border-radius:4px;overflow:hidden;margin:2px 0 8px}
+.poll .bar i{display:block;height:100%;background:var(--red)}
+.page-like{display:flex;gap:12px;align-items:center}
+.page-like .av{background:var(--red);width:48px;height:48px;font-size:16px}
+.page-like button{margin-left:auto;font:800 14px var(--body);border:0;background:#1f5fd6;color:#fff;border-radius:4px;padding:8px 14px}
+
+footer{max-width:1140px;margin:0 auto 30px;padding:0 18px;color:var(--muted);font-size:12px}
+.labels-btn{font:700 13px var(--body);border:1px solid var(--line);background:#fff;border-radius:4px;padding:6px 10px;cursor:pointer;margin-top:8px}
+button:focus-visible,a:focus-visible{outline:3px solid var(--yel);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<div class="ticker" aria-hidden="true"><span>🔴 BREAKING: Baha na naman sa Brgy. Maligaya, nasaan si Mayora? &nbsp;&nbsp;•&nbsp;&nbsp; LUTANG CHRONICLES PART 3 lalabas mamayang 8PM &nbsp;&nbsp;•&nbsp;&nbsp; I-share bago i-delete ng City Hall! &nbsp;&nbsp;•&nbsp;&nbsp; 48K na ang nag-react sa video ni "Lutang Mayor"</span></div>
+
+<header class="mast">
+  <div class="in">
+    <a class="brand" href="#">TOTOONG BALITA PH<small>Ang balitang ayaw ipakita ng mainstream</small></a>
+    <nav class="nav">
+      <a href="#"><span class="live">LIVE</span></a>
+      <a href="#">Pulitika</a>
+      <a href="#">San Isidro Watch</a>
+      <a href="#">Showbiz</a>
+      <a href="#">Viral</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+<main>
+<article>
+  <span class="kicker">SAN ISIDRO WATCH</span>
+  <h1><span class="hl">LUTANG NA NAMAN?</span> Mayora, hindi alam ang sariling budget. Sino ba talaga ang nagdedesisyon sa City Hall?</h1>
+
+  <div class="byline">
+    <div class="av">TB</div>
+    <div><b>Admin Kuya Jhun</b><br>Setyembre 26 nang 9:14 PM · 🌏 Public</div>
+  </div>
+
+  <div class="sharebar">
+    <button type="button">I-share sa Facebook</button>
+    <button type="button" class="alt">I-share bago i-delete!</button>
+    <span class="cnt">12.4K shares</span>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 800 420" role="img" aria-label="Ilustrasyon: City Hall ng San Isidro na binabaha, may tatak na LUTANG?">
+      <rect width="800" height="420" fill="#8fa9bf"/>
+      <rect y="0" width="800" height="210" fill="#b9cad8"/>
+      <g fill="#e9e3d6" stroke="#6c6353" stroke-width="3">
+        <rect x="210" y="120" width="380" height="200"/>
+        <polygon points="190,120 400,48 610,120"/>
+        <rect x="370" y="210" width="60" height="110" fill="#6c6353"/>
+      </g>
+      <g fill="#f7f3ea" stroke="#6c6353" stroke-width="2">
+        <rect x="235" y="140" width="22" height="160"/><rect x="290" y="140" width="22" height="160"/>
+        <rect x="488" y="140" width="22" height="160"/><rect x="543" y="140" width="22" height="160"/>
+      </g>
+      <text x="400" y="104" text-anchor="middle" font-family="Georgia,serif" font-size="18" fill="#6c6353">BULWAGANG PANLUNGSOD</text>
+      <path d="M0 290 Q100 275 200 290 T400 290 T600 290 T800 290 V420 H0Z" fill="#6b5a3e" opacity=".92"/>
+      <path d="M0 312 Q100 298 200 312 T400 312 T600 312 T800 312" stroke="#8c7852" stroke-width="4" fill="none"/>
+      <g transform="translate(40 -30) rotate(-12 610 70)">
+        <rect x="500" y="36" width="230" height="72" fill="none" stroke="#d6001c" stroke-width="7"/>
+        <text x="615" y="94" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="52" fill="#d6001c">LUTANG?</text>
+      </g>
+    </svg>
+    <figcaption>Ganito ang itsura ng City Hall kaninang umaga. Si Mayora? Hindi raw alam na may bagyo. (Larawan: ipinadala ng isang follower)</figcaption>
+  </figure>
+
+  <div class="body">
+    <p data-category="hate" data-subtype="competence_attack" data-severity="2" data-urgent="false"><strong>LUTANG na naman si Mayor Dela Cruz 😂.</strong> Sa budget hearing kahapon, tinanong siya ni Konsehal Ibarra kung magkano ang pondo para sa drainage. Ang sagot? "I will check po." Tatlong taon ka na sa pwesto, Mayora, hindi mo pa rin alam? Kung sa bahay nga hindi mo kayang i-budget ang pang-ulam, paano pa ang buong lungsod?</p>
+    <div class="label">Gender Hate Speech → Competence attack · severity 2</div>
+
+    <p data-category="disinfo" data-subtype="family_rumour" data-severity="3" data-urgent="false">Pero ito ang tanong ng bayan: <strong>sino ba talaga ang nagdedesisyon, siya o si mister? 🤔</strong> Ayon sa aming source sa City Hall, si Ramon daw ang pumipirma ng lahat ng kontrata. Si Mayora? Pang-picture lang at pang-ribbon cutting.</p>
+    <div class="label">Gendered Disinformation → Family rumour (puppet of husband) · verification needed</div>
+
+    <p data-category="disinfo" data-subtype="competence_disinformation" data-severity="3" data-urgent="false">At bakit ganun na lang ang pagtatanggol niya sa "women's shelter" project? Simple lang, mga ka-Bayan: <strong>bayad ng foreign NGO 💰.</strong> Follow the money. Hindi 'yan para sa mga nanay ng San Isidro, para 'yan sa bulsa niya.</p>
+    <div class="label">Gendered Disinformation → Unverified "foreign agent" claim · verification needed</div>
+
+    <div class="quote" data-category="manip" data-subtype="fabricated_quote" data-severity="3" data-urgent="false">
+      <q>Ang mga nanay na nagrereklamo sa baha, tamad lang maglinis ng bahay.</q>
+      <cite>Mayor Charing Dela Cruz <span class="src">(screenshot mula sa isang GC ng mga empleyado)</span></cite>
+    </div>
+    <div class="label">Manipulated Text → Fabricated quote · verification needed</div>
+
+    <p data-category="manip" data-subtype="selective_editing" data-severity="3" data-urgent="false">Hindi pa kayo naniniwala? Siya mismo ang umamin sa presscon: <strong>"Hindi natin kayang ayusin ang lahat."</strong> Babae nga naman, sumuko agad. 😂</p>
+    <div class="label">Manipulated Text → Selective editing + gender stereotype</div>
+
+    <p data-category="disinfo" data-subtype="family_rumour" data-severity="3" data-urgent="false">Kaya pala laging absent sa session nitong mga nakaraang linggo. <strong>Buntis daw ulit at tinatago sa publiko.</strong> Sino ang nagpapatakbo ng lungsod habang nagtatago siya?</p>
+    <div class="label">Gendered Disinformation → Motherhood rumour · verification needed</div>
+
+    <div class="alert">Abangan: <em>LUTANG CHRONICLES PART 3</em> mamayang 8PM. Naka-save na namin ang lahat ng video bago pa nila i-delete.</div>
+
+    <figure data-category="manip" data-subtype="context_manipulation" data-severity="2" data-urgent="false">
+      <svg viewBox="0 0 800 460" role="img" aria-label="Meme: babaeng mayor sa podium, may caption na Lutang Chronicles Part 2">
+        <rect width="800" height="460" fill="#2b2f36"/>
+        <rect x="0" y="330" width="800" height="130" fill="#1b1e23"/>
+        <rect x="300" y="250" width="200" height="130" fill="#6b4a2f"/>
+        <rect x="380" y="232" width="40" height="22" fill="#222"/>
+        <circle cx="400" cy="150" r="46" fill="#c99a78"/>
+        <path d="M352 150 Q352 92 400 92 Q450 92 448 150 Q448 110 400 112 Q360 112 352 150Z" fill="#1c1411"/>
+        <path d="M330 250 Q340 196 400 196 Q460 196 470 250Z" fill="#b0103a"/>
+        <circle cx="384" cy="150" r="5" fill="#222"/><circle cx="416" cy="150" r="5" fill="#222"/>
+        <path d="M388 176 Q400 170 412 176" stroke="#222" stroke-width="3" fill="none"/>
+        <text x="400" y="62" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="46" fill="#fff" stroke="#000" stroke-width="2">LUTANG CHRONICLES PART 2</text>
+        <text x="400" y="420" text-anchor="middle" font-family="Anton,Impact,sans-serif" font-size="36" fill="#fff" stroke="#000" stroke-width="2">NAKALIMUTAN ANG SARILING SPEECH 😂😂</text>
+      </svg>
+      <figcaption>Mayor Dela Cruz forgot her own speech again. Nangyari ito sa flag ceremony noong Lunes. (Clip, 0:12)</figcaption>
+    </figure>
+    <div class="label">Manipulated Text → Context manipulation (meme series)</div>
+
+    <p data-category="legit" data-subtype="none" data-severity="0" data-urgent="false">Para sa kaalaman ng lahat: ayon sa COA annual audit report para sa San Isidro, may ₱12 milyon sa flood control fund na hindi pa na-liquidate hanggang ngayon. Hinihintay pa ang paliwanag ng Office of the Mayor.</p>
+    <div class="label legit">Legitimate criticism → cites an audit, no gender element</div>
+
+    <div class="tags"><a href="#">#LutangMayor</a><a href="#">#SanIsidroWatch</a><a href="#">#SinoAngMayor</a><a href="#">#BahaPaRin</a></div>
+  </div>
+
+  <div class="react">
+    <span><span class="em">😆😡😮</span>48K</span>
+    <span>6.2K comments · 12.4K shares</span>
+  </div>
+
+  <section class="comments" aria-label="Mga komento">
+    <h2>Mga komento</h2>
+    <div class="sort">Pinaka-relevant ▾</div>
+
+    <div class="c" data-category="legit" data-subtype="none" data-severity="0" data-urgent="false">
+      <div class="av" style="background:#546e7a">RB</div>
+      <div><div class="bub"><b>Rowena Bautista</b><p class="t">Tatlong taon nang binabaha ang Brgy. Maligaya kahit may pondo. Pangit ang performance, period. Hindi na ako boboto ulit sa kanya.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>3h</span><span>👍 412</span></div>
+      <div class="label legit">Legitimate criticism → her record</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="competence_attack" data-severity="2" data-urgent="false">
+      <div class="av" style="background:#8d6e63">MV</div>
+      <div><div class="bub"><b>Marlon Villanueva<span class="top-fan">Top fan</span></b><p class="t">Lutang na naman si Mayor Dela Cruz 😂 di alam budget ng city niya</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>3h</span><span>😆 1.1K</span></div>
+      <div class="label">Gender Hate Speech → Competence attack</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="competence_attack" data-severity="2" data-urgent="false">
+      <div class="av" style="background:#5c6bc0">JP</div>
+      <div><div class="bub"><b>Jerome Pangilinan</b><p class="t">Si Mayor lutang, sana may teleprompter next time 🤣</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>3h</span><span>😆 640</span></div>
+      <div class="label">Gender Hate Speech → Competence attack</div></div>
+    </div>
+
+    <div class="c" data-category="manip" data-subtype="coordinated_copy" data-severity="3" data-urgent="false">
+      <div class="av" style="background:#26a69a">DS</div>
+      <div><div class="bub"><b>Dexter Santos</b><p class="t">Lutang chronicles part 2: Mayor Dela Cruz forgot her own speech 😂</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>2h</span><span>😆 220</span></div>
+      <div class="label">Manipulated Text → Fake-quote series (coordination test A)</div></div>
+    </div>
+
+    <div class="c" data-category="manip" data-subtype="coordinated_copy" data-severity="3" data-urgent="false">
+      <div class="av" style="background:#ef6c00">KA</div>
+      <div><div class="bub"><b>Kristine Aquino</b><p class="t">Lutang chronicles: Mayor forgot her own speech again 😂😂</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>2h</span><span>😆 198</span></div>
+      <div class="label">Manipulated Text → Near-duplicate of the comment above (coordination test B)</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="gender_role_attack" data-severity="3" data-urgent="false">
+      <div class="av" style="background:#7e57c2">NR</div>
+      <div><div class="bub"><b>Nestor Reyes</b><p class="t">Sino ba talaga nagdedesisyon, siya o asawa niya? 🤔</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>2h</span><span>🤔 530</span></div>
+      <div class="label">Gender Hate Speech → Gender-role attack (controlled by husband)</div></div>
+    </div>
+
+    <div class="c" data-category="disinfo" data-subtype="competence_disinformation" data-severity="3" data-urgent="false">
+      <div class="av" style="background:#43a047">EG</div>
+      <div><div class="bub"><b>Edgar Gatchalian</b><p class="t">Bayad ng foreign NGO yan kaya ganyan 💰</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>2h</span><span>😡 310</span></div>
+      <div class="label">Gendered Disinformation → Unverified "foreign agent" claim</div></div>
+    </div>
+
+    <div class="c reply" data-category="legit" data-subtype="defense" data-severity="0" data-urgent="false">
+      <div class="av" style="background:#ec407a">LM</div>
+      <div><div class="bub"><b>Liezel Magbanua</b><p class="t">Isa na namang bayarang troll 💰</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>2h</span><span>👍 88</span></div>
+      <div class="label legit">None → Defense (calls the attacker paid, not an attack on her)</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="competence_attack" data-severity="3" data-urgent="false">
+      <div class="av" style="background:#6d4c41">BT</div>
+      <div><div class="bub"><b>Bong Tolentino</b><p class="t">Babae kasi, masyadong emotional. Next election lalaki na lang ulit, tapos ang usapan.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>2h</span><span>👍 275</span></div>
+      <div class="label">Gender Hate Speech → Competence attack based on gender stereotype</div></div>
+    </div>
+
+    <div class="c" data-category="disinfo" data-subtype="sexual_rumour" data-severity="4" data-urgent="false">
+      <div class="av" style="background:#8e2420">JD</div>
+      <div><div class="bub"><b>Jonel Dizon</b><p class="t">Alam naman ng lahat paano niya nakuha 'yang pwesto 🍆🔥</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>2h</span><span>😆 890</span></div>
+      <div class="label">Gendered Disinformation → Sexual rumour (emoji-coded) · verification needed</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="sexist_insult" data-severity="4" data-urgent="false">
+      <div class="av" style="background:#455a64">WB</div>
+      <div><div class="bub"><b>Wilfredo Bernal</b><p class="t">Malanding mayor, puro pa-cute sa camera. Ganyan talaga pag babae ang binoto niyo.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>1h</span><span>😆 402</span></div>
+      <div class="label">Gender Hate Speech → Sexist insult</div></div>
+    </div>
+
+    <div class="c" data-category="disinfo" data-subtype="morality_rumour" data-severity="3" data-urgent="false">
+      <div class="av" style="background:#00838f">NQ</div>
+      <div><div class="bub"><b>Nonoy Quiambao</b><p class="t">Balita ko gabi-gabi raw 'yan sa bar sa Poblacion, iba-iba ang kasamang lalaki. Kawawa si mister.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>1h</span><span>😮 356</span></div>
+      <div class="label">Gendered Disinformation → Morality rumour · verification needed</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="victim_blaming" data-severity="4" data-urgent="false">
+      <div class="av" style="background:#ad1457">SO</div>
+      <div><div class="bub"><b>Sheila Ocampo</b><p class="t">Lagi siyang nagpo-post tungkol sa harassment, papansin lang 😂 Kung ayaw mong ma-bash, umuwi ka na lang sa bahay niyo.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>1h</span><span>😆 214</span></div>
+      <div class="label">Gender Hate Speech → Victim-blaming</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="dehumanization" data-severity="4" data-urgent="false">
+      <div class="av" style="background:#9e9d24">RC</div>
+      <div><div class="bub"><b>Rico Cabrera</b><p class="t">Palamuti lang 'yan sa City Hall, parang paso sa gilid ng hagdan. Dinidiligan lang ni mister.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>58m</span><span>😆 167</span></div>
+      <div class="label">Gender Hate Speech → Dehumanization</div></div>
+    </div>
+
+    <div class="c reply" data-category="legit" data-subtype="defense" data-severity="0" data-urgent="false">
+      <div class="av" style="background:#f06292">AT</div>
+      <div><div class="bub"><b>Ana Tuazon</b><p class="t">Inggit lang kayo kasi may natapos siya, kayo wala 😆 Yung bagong health center sa Brgy. Bagong Silang, sino nagpatayo?</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>52m</span><span>❤️ 95</span></div>
+      <div class="label legit">None → Defense</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="gender_based_threat" data-severity="5" data-urgent="true">
+      <div class="av" style="background:#212121">XX</div>
+      <div><div class="bub"><b>Pinoy Patriot 1987</b><p class="t">Konting tiis na lang, may magtuturo din ng leksyon sa babaeng 'yan. Hindi habambuhay may bodyguard siya.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>41m</span><span>😡 73</span></div>
+      <div class="label urgent">URGENT · Gender Hate Speech → Gender-based threat</div></div>
+    </div>
+
+    <div class="c" data-category="hate" data-subtype="doxxing" data-severity="5" data-urgent="true">
+      <div class="av" style="background:#3e2723">GL</div>
+      <div><div class="bub"><b>Gerald Lim</b><p class="t">Nakita ko bahay niya: Villa Rosario Subd., Blk 4 Lot 12, Brgy. Maligaya. Tara, bisitahin natin si Mayora 😏</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>33m</span><span>😆 51</span></div>
+      <div class="label urgent">URGENT · Doxxing + implied threat (fictional address)</div></div>
+    </div>
+
+    <div class="c" data-category="legit" data-subtype="none" data-severity="0" data-urgent="false">
+      <div class="av" style="background:#78909c">PM</div>
+      <div><div class="bub"><b>Paolo Mendoza</b><p class="t">Anyone alam kung may pasok bukas? Baha pa rin sa Rizal Ave, hindi makadaan ang jeep.</p></div>
+      <div class="meta"><span>Like</span><span>Reply</span><span>20m</span><span>👍 12</span></div>
+      <div class="label legit">None → Off-topic</div></div>
+    </div>
+  </section>
+</article>
+</main>
+
+<aside>
+  <div class="box">
+    <div class="page-like">
+      <div class="av">TB</div>
+      <div><b>Totoong Balita PH</b><br><small style="color:var(--muted)">1.2M followers</small></div>
+      <button type="button">Follow</button>
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>Trending ngayon</h3>
+    <a class="trend" href="#" data-category="disinfo" data-subtype="morality_rumour" data-severity="3" data-urgent="false"><span class="n">1</span><div><p>Mayora, nag-shopping daw sa Hong Kong habang lubog sa baha ang San Isidro?</p><small>88K views</small></div></a>
+    <a class="trend" href="#" data-category="hate" data-subtype="competence_attack" data-severity="2" data-urgent="false"><span class="n">2</span><div><p>5 beses nagkamali si "Lutang Mayor" sa loob ng isang linggo</p><small>61K views</small></div></a>
+    <a class="trend" href="#" data-category="disinfo" data-subtype="family_rumour" data-severity="3" data-urgent="false"><span class="n">3</span><div><p>Si mister na raw ang tatakbo sa 2028: "Siya naman talaga ang mayor"</p><small>40K views</small></div></a>
+    <a class="trend" href="#" data-category="legit" data-subtype="none" data-severity="0" data-urgent="false"><span class="n">4</span><div><p>PAGASA: Signal No. 1 itinaas sa Rizal at Quezon</p><small>22K views</small></div></a>
+  </div>
+
+  <div class="box poll">
+    <h3>Poll ng bayan</h3>
+    <p style="margin:0 0 8px;font-weight:700">Dapat bang mag-resign si Mayor Dela Cruz?</p>
+    <label><input type="radio" name="p"> Oo, ibalik sa kusina</label>
+    <div class="bar"><i style="width:71%"></i></div>
+    <label><input type="radio" name="p"> Hindi, bigyan pa ng chance</label>
+    <div class="bar"><i style="width:22%"></i></div>
+    <label><input type="radio" name="p"> Wala akong pake</label>
+    <div class="bar"><i style="width:7%"></i></div>
+    <small style="color:var(--muted)">14,208 boto</small>
+  </div>
+</aside>
+</div>
+
+<footer>
+  © 2026 Totoong Balita PH. Lahat ng pangalan, lugar at pangyayari sa pahinang ito ay kathang-isip, ginawa para i-test ang Kalasag extension.
+  <br><button type="button" class="labels-btn" id="labelsBtn">Show expected labels</button>
+</footer>
+
+<script>
+document.getElementById("labelsBtn").addEventListener("click", function () {
+  var on = document.body.classList.toggle("show-labels");
+  this.textContent = on ? "Hide expected labels" : "Show expected labels";
+});
+</script>
+</body>
+</html>
