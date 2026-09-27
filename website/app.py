@@ -7,20 +7,23 @@ Run:   python app.py
 Open:  http://localhost:8000          (dashboard)
        http://localhost:8000/test-feed (fake social feed to test the extension on)
 
+Shared online database: put SUPABASE_URL and SUPABASE_SECRET_KEY in website/.env
+       (without them, data is kept in a local file, kalasag.db).
 Optional AI features (drafting word entries, alert summaries):
-       set ANTHROPIC_API_KEY in your terminal before running.
+       set ANTHROPIC_API_KEY in website/.env or in your terminal.
 """
 import base64
 import hashlib
 import json
 import os
 import re
-import sqlite3
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
+
+from store import SupabaseError, load_env_file, open_store
 
 HOST, PORT = "127.0.0.1", 8000
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +31,7 @@ DB_PATH = os.path.join(BASE, "kalasag.db")
 EVIDENCE_DIR = os.path.join(BASE, "evidence")
 STATIC_DIR = os.path.join(BASE, "static")
 
+load_env_file(os.path.join(BASE, ".env"))   # optional, git-ignored: keys for Supabase and the AI
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 MODEL = "claude-sonnet-5"
 
@@ -47,6 +51,20 @@ CATEGORIES = {
     "threat": "Threat of violence",
     "misogynistic_generalization": "Demeaning women as a group",
     "unclassified": "Needs classification",
+}
+# Two levels: every detailed category above belongs to one of the guide's broad categories.
+BROAD_LABELS = {
+    "gender_hate_speech": "Gender hate speech",
+    "gendered_disinformation": "Gendered disinformation",
+    "manipulated_text": "Manipulated text or context",
+    "unclassified": "Not yet classified",
+}
+BROAD_OF = {
+    "sexualized_slur": "gender_hate_speech", "emotional_unfitness": "gender_hate_speech",
+    "family_role": "gender_hate_speech", "appearance": "gender_hate_speech",
+    "misogynistic_generalization": "gender_hate_speech", "threat": "gender_hate_speech",
+    "competence_undermining": "gendered_disinformation", "fabricated_scandal": "gendered_disinformation",
+    "unclassified": "unclassified",
 }
 SEVERITIES = ["low", "medium", "high"]
 LANGUAGES = {"tl": "Tagalog", "ceb": "Cebuano", "ilo": "Ilocano", "en": "English"}
@@ -103,22 +121,15 @@ def iso(dt):
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def db():
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
-def row_to_dict(row, json_fields=()):
-    d = dict(row)
-    for f in json_fields:
-        if f in d and isinstance(d[f], str):
-            try:
-                d[f] = json.loads(d[f])
-            except json.JSONDecodeError:
-                d[f] = []
-    return d
+def parse_ts(value):
+    """Read a timestamp from either database (works on Python 3.9 too)."""
+    text = str(value).replace("Z", "+00:00").replace(" ", "T")
+    if "." in text[19:]:                       # drop fractions of a second
+        head, tail = text[:19], text[19:]
+        tail = tail[tail.index("+"):] if "+" in tail else ""
+        text = head + tail
+    dt = datetime.fromisoformat(text)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 def as_list(value):
@@ -144,8 +155,7 @@ def save_b64_file(data_b64, prefix, original_name="file.bin"):
     digest = hashlib.sha256(raw).hexdigest()
     ext = os.path.splitext(original_name)[1].lower()[:8] or ".bin"
     name = f"{prefix}_{digest[:16]}{ext}"
-    with open(os.path.join(EVIDENCE_DIR, name), "wb") as fh:
-        fh.write(raw)
+    STORE.save_file(name, raw, MIME.get(ext, "application/octet-stream"))
     return name, digest
 
 
@@ -242,52 +252,6 @@ def ai_draft_entry(term, language, country, raw_text):
 
 # ---------------------------------------------------------------- database setup
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS lexicon (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    term TEXT NOT NULL, variants TEXT NOT NULL DEFAULT '[]',
-    language TEXT NOT NULL, country TEXT NOT NULL,
-    meaning TEXT, category TEXT NOT NULL DEFAULT 'unclassified',
-    severity TEXT NOT NULL DEFAULT 'medium', context_note TEXT,
-    status TEXT NOT NULL DEFAULT 'pending',          -- pending | approved | rejected
-    raw_submission TEXT, submitted_by TEXT, approved_by TEXT,
-    ai_drafted INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS leaders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL, name_variants TEXT NOT NULL DEFAULT '[]',
-    organization TEXT, alert_contact TEXT, created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    leader_id INTEGER NOT NULL REFERENCES leaders(id),
-    name TEXT NOT NULL, event_date TEXT, location TEXT, created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at TEXT NOT NULL, url TEXT, platform TEXT,
-    lexicon_id INTEGER REFERENCES lexicon(id),
-    matched_text TEXT, context_text TEXT, category TEXT,
-    reporter_role TEXT, country TEXT,
-    leader_id INTEGER REFERENCES leaders(id),
-    screenshot_file TEXT, screenshot_sha256 TEXT
-);
-CREATE TABLE IF NOT EXISTS alerts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    leader_id INTEGER NOT NULL REFERENCES leaders(id),
-    created_at TEXT NOT NULL, count_24h INTEGER, baseline_per_day REAL,
-    summary TEXT, seen INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS incidents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    leader_id INTEGER REFERENCES leaders(id),
-    created_at TEXT NOT NULL, occurred_at TEXT,
-    description TEXT NOT NULL, witnesses TEXT,
-    files TEXT NOT NULL DEFAULT '[]'                  -- [{name, file, sha256}]
-);
-"""
-
 SEED_TERMS = [
     # (term, variants, lang, meaning, category, severity, context_note)
     ("iyakin", ["1yak1n", "iyak1n", "iyak!n", "i y a k i n"], "tl",
@@ -332,93 +296,98 @@ SEED_PENDING = [
 ]
 
 
-def init_db():
-    os.makedirs(EVIDENCE_DIR, exist_ok=True)
-    with db() as conn:
-        conn.executescript(SCHEMA)
-        if conn.execute("SELECT COUNT(*) FROM lexicon").fetchone()[0]:
-            return
-        print("Seeding demo data (fictional leaders and placeholder terms)...")
-        ts = iso(now_utc())
-        for term, variants, lang, meaning, cat, sev, note in SEED_TERMS:
-            conn.execute(
-                "INSERT INTO lexicon (term, variants, language, country, meaning, category, severity,"
-                " context_note, status, submitted_by, approved_by, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?, 'approved', 'seed', 'Demo partner org', ?, ?)",
-                (term, json.dumps(variants), lang, "PH", meaning, cat, sev, note, ts, ts))
-        for term, lang, country, raw, who, draft in SEED_PENDING:
-            draft = draft or {"meaning": raw, "category": "unclassified", "severity": "medium",
-                              "variants": leet_variants(term), "context_note": "", "ai_drafted": 0}
-            conn.execute(
-                "INSERT INTO lexicon (term, variants, language, country, meaning, category, severity,"
-                " context_note, status, raw_submission, submitted_by, ai_drafted, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?, 'pending', ?,?,?,?,?)",
-                (term, json.dumps(draft["variants"]), lang, country, draft["meaning"], draft["category"],
-                 draft["severity"], draft["context_note"], raw, who, draft["ai_drafted"], ts, ts))
+STORE = None   # set in main(): Supabase if configured, otherwise the local SQLite file
 
-        leaders = [
-            ("Mayor Liza Reyes", ["Liza Reyes", "Mayor Reyes", "Mayora Liza", "Liza"],
-             "UN Women Philippines (demo)", "alerts@example.org",
-             ("Town hall on the port project", 5, "City hall")),
-            ("Sen. Carmen Dela Cruz", ["Carmen Dela Cruz", "Dela Cruz", "Sen. Dela Cruz", "Senadora Carmen"],
-             "Women in Governance Network (demo)", "team@example.org",
-             ("Maternal health bill hearing", 12, "Senate, Pasay")),
-        ]
-        for name, variants, org, contact, (ev_name, in_days, loc) in leaders:
-            cur = conn.execute(
-                "INSERT INTO leaders (name, name_variants, organization, alert_contact, created_at)"
-                " VALUES (?,?,?,?,?)", (name, json.dumps(variants), org, contact, ts))
-            conn.execute(
-                "INSERT INTO events (leader_id, name, event_date, location, created_at) VALUES (?,?,?,?,?)",
-                (cur.lastrowid, ev_name, (now_utc() + timedelta(days=in_days)).strftime("%Y-%m-%d"), loc, ts))
 
-        # A quiet baseline of about one report a day last week, so the spike stands out.
-        for leader_id in (1, 2):
-            for day in range(2, 9):
-                when = iso(now_utc() - timedelta(days=day, hours=3 * leader_id))
-                conn.execute(
-                    "INSERT INTO reports (created_at, url, platform, lexicon_id, matched_text, category,"
-                    " reporter_role, country, leader_id) VALUES (?,?,?,?,?,?,?,?,?)",
-                    (when, "https://example.com/post/baseline", "facebook", 1, "iyakin",
-                     "emotional_unfitness", "ally", "PH", leader_id))
+def seed_demo_data():
+    """First run only: fictional leaders, Tagalog/English terms and a quiet week of reports."""
+    if not STORE.is_empty():
+        return
+    print("Seeding demo data (fictional leaders and placeholder terms)...")
+    ts = iso(now_utc())
+    term_ids = []
+    for term, variants, lang, meaning, cat, sev, note in SEED_TERMS:
+        row = STORE.lexicon_insert({
+            "term": term, "variants": variants, "language": lang, "country": "PH", "meaning": meaning,
+            "category": cat, "severity": sev, "context_note": note, "status": "approved",
+            "submitted_by": "seed", "approved_by": "Demo partner org", "created_at": ts, "updated_at": ts})
+        term_ids.append(row["id"])
+    for term, lang, country, raw, who, draft in SEED_PENDING:
+        draft = draft or {"meaning": raw, "category": "unclassified", "severity": "medium",
+                          "variants": leet_variants(term), "context_note": "", "ai_drafted": 0}
+        STORE.lexicon_insert({
+            "term": term, "variants": draft["variants"], "language": lang, "country": country,
+            "meaning": draft["meaning"], "category": draft["category"], "severity": draft["severity"],
+            "context_note": draft["context_note"], "status": "pending", "raw_submission": raw,
+            "submitted_by": who, "ai_drafted": draft["ai_drafted"], "created_at": ts, "updated_at": ts})
+
+    leaders = [
+        ("Mayor Liza Reyes", ["Liza Reyes", "Mayor Reyes", "Mayora Liza", "Liza"],
+         "UN Women Philippines (demo)", "alerts@example.org",
+         ("Town hall on the port project", 5, "City hall")),
+        ("Sen. Carmen Dela Cruz", ["Carmen Dela Cruz", "Dela Cruz", "Sen. Dela Cruz", "Senadora Carmen"],
+         "Women in Governance Network (demo)", "team@example.org",
+         ("Maternal health bill hearing", 12, "Senate, Pasay")),
+    ]
+    leader_ids = []
+    for name, variants, org, contact, (ev_name, in_days, loc) in leaders:
+        leader_id = STORE.leader_insert({"name": name, "name_variants": variants, "organization": org,
+                                         "alert_contact": contact, "created_at": ts})
+        leader_ids.append(leader_id)
+        STORE.event_insert({"leader_id": leader_id, "name": ev_name, "location": loc, "created_at": ts,
+                            "event_date": (now_utc() + timedelta(days=in_days)).strftime("%Y-%m-%d")})
+
+    # Two quiet weeks of background reports (about 1 a day each, mixed narratives),
+    # so the trends dashboard has a history and a spike stands out.
+    background = [(0, "facebook"), (5, "facebook"), (3, "x"), (2, "tiktok"), (0, "x"), (4, "facebook"), (5, "tiktok")]
+    for n, leader_id in enumerate(leader_ids):
+        for day in range(1, 15):
+            idx, platform = background[(day + n) % len(background)]
+            idx = idx % len(term_ids)
+            STORE.report_insert({
+                "created_at": iso(now_utc() - timedelta(days=day, hours=3 + 5 * n)),
+                "url": f"https://example.com/post/baseline-{leader_id}-{day}", "platform": platform,
+                "lexicon_id": term_ids[idx], "matched_text": SEED_TERMS[idx][0],
+                "category": SEED_TERMS[idx][4], "reporter_role": "ally", "country": "PH",
+                "leader_id": leader_id})
+
+
+def with_broad(row, field="category"):
+    """Add the guide's broad category next to the detailed one."""
+    cat = row.get(field) or "unclassified"
+    broad = BROAD_OF.get(cat, "unclassified")
+    return {**row, "category_label": CATEGORIES.get(cat, cat), "broad_category": broad,
+            "broad_label": BROAD_LABELS[broad]}
 
 
 # ---------------------------------------------------------------- core logic
 
-def find_leader(conn, *texts):
+def find_leader(*texts):
     blob = " ".join(t for t in texts if t).lower()
     if not blob:
         return None
-    for row in conn.execute("SELECT id, name, name_variants FROM leaders"):
-        names = [row["name"]] + json.loads(row["name_variants"] or "[]")
+    for leader in STORE.leaders_list():
+        names = [leader["name"]] + list(leader.get("name_variants") or [])
         # Longest names first so "Mayor Reyes" wins over a short nickname.
         for n in sorted(names, key=len, reverse=True):
             if len(n) >= 4 and n.lower() in blob:
-                return row["id"]
+                return leader["id"]
     return None
 
 
-def check_spike(conn, leader_id):
+def check_spike(leader_id):
     """Create an alert if reports about this leader have spiked. Returns the alert or None."""
     now = now_utc()
     since_24h, since_8d = iso(now - timedelta(hours=24)), iso(now - timedelta(days=8))
-    count = conn.execute("SELECT COUNT(*) FROM reports WHERE leader_id=? AND created_at>=?",
-                         (leader_id, since_24h)).fetchone()[0]
-    prev = conn.execute("SELECT COUNT(*) FROM reports WHERE leader_id=? AND created_at>=? AND created_at<?",
-                        (leader_id, since_8d, since_24h)).fetchone()[0]
-    baseline = prev / 7.0
+    count = STORE.reports_count(leader_id, since_24h)
+    baseline = STORE.reports_count(leader_id, since_8d, until=since_24h) / 7.0
     if count < SPIKE_MIN or count < SPIKE_MULTIPLIER * max(baseline, 1.0):
         return None
-    recent = conn.execute("SELECT 1 FROM alerts WHERE leader_id=? AND created_at>=?",
-                          (leader_id, iso(now - timedelta(hours=ALERT_COOLDOWN_HOURS)))).fetchone()
-    if recent:
+    if STORE.alert_exists_since(leader_id, iso(now - timedelta(hours=ALERT_COOLDOWN_HOURS))):
         return None
 
-    rows = conn.execute(
-        "SELECT r.platform, r.category, r.context_text, r.matched_text FROM reports r"
-        " WHERE r.leader_id=? AND r.created_at>=? ORDER BY r.created_at DESC LIMIT 40",
-        (leader_id, since_24h)).fetchall()
-    leader = conn.execute("SELECT name FROM leaders WHERE id=?", (leader_id,)).fetchone()
+    rows = STORE.reports_for_leader(leader_id, since_24h, limit=40)
+    leader = STORE.leader_get(leader_id)
     lines = [f"- [{r['platform']}] category={r['category']}: {(r['context_text'] or r['matched_text'] or '')[:200]}"
              for r in rows]
     summary = call_claude(SUMMARY_SYSTEM,
@@ -433,11 +402,10 @@ def check_spike(conn, leader_id):
         platforms = sorted({r["platform"] or "unknown" for r in rows})
         summary = (f"{count} reports in the last 24 hours, against a usual {baseline:.1f} per day. "
                    f"Most common: {parts}. Platforms: {', '.join(platforms)}.")
-    ts = iso(now)
-    cur = conn.execute("INSERT INTO alerts (leader_id, created_at, count_24h, baseline_per_day, summary)"
-                       " VALUES (?,?,?,?,?)", (leader_id, ts, count, round(baseline, 2), summary.strip()))
+    alert_id = STORE.alert_insert({"leader_id": leader_id, "created_at": iso(now), "count_24h": count,
+                                   "baseline_per_day": round(baseline, 2), "summary": summary.strip()})
     print(f"ALERT for leader {leader_id}: {count} reports in 24h")
-    return {"id": cur.lastrowid, "leader_id": leader_id, "count_24h": count, "summary": summary.strip()}
+    return {"id": alert_id, "leader_id": leader_id, "count_24h": count, "summary": summary.strip()}
 
 
 # ---------------------------------------------------------------- route handlers
@@ -445,35 +413,23 @@ def check_spike(conn, leader_id):
 
 def api_status(q, body):
     return 200, {"ai_enabled": bool(API_KEY), "model": MODEL if API_KEY else None,
-                 "categories": CATEGORIES, "languages": LANGUAGES, "severities": SEVERITIES}
+                 "database": STORE.kind,
+                 "categories": CATEGORIES, "broad_categories": BROAD_LABELS, "broad_of": BROAD_OF,
+                 "languages": LANGUAGES, "severities": SEVERITIES}
 
 
 def api_lexicon(q, body):
     """What the extension downloads. Only approved entries."""
-    sql, args = "SELECT * FROM lexicon WHERE status='approved'", []
-    if q.get("country"):
-        sql += " AND country=?"
-        args.append(q["country"].upper())
-    langs = as_list(q.get("languages"))
-    if langs:
-        sql += f" AND language IN ({','.join('?' * len(langs))})"
-        args += langs
-    with db() as conn:
-        rows = conn.execute(sql + " ORDER BY term", args).fetchall()
-        version = conn.execute("SELECT MAX(updated_at) FROM lexicon WHERE status='approved'").fetchone()[0]
-    entries = [{k: e[k] for k in ("id", "term", "variants", "language", "country", "meaning",
-                                  "category", "severity", "context_note")}
-               | {"category_label": CATEGORIES.get(e["category"], e["category"])}
-               for e in (row_to_dict(r, ["variants"]) for r in rows)]
-    return 200, {"version": version, "count": len(entries), "entries": entries}
+    country = (q.get("country") or "").upper() or None
+    rows = STORE.lexicon_list("approved", country=country, languages=as_list(q.get("languages")))
+    entries = [with_broad({k: e[k] for k in ("id", "term", "variants", "language", "country", "meaning",
+                                             "category", "severity", "context_note")})
+               for e in rows]
+    return 200, {"version": STORE.lexicon_version(), "count": len(entries), "entries": entries}
 
 
 def api_submissions_list(q, body):
-    status = q.get("status", "pending")
-    with db() as conn:
-        rows = conn.execute("SELECT * FROM lexicon WHERE status=? ORDER BY created_at DESC",
-                            (status,)).fetchall()
-    return 200, [row_to_dict(r, ["variants"]) for r in rows]
+    return 200, STORE.lexicon_list(q.get("status", "pending"))
 
 
 def api_submissions_create(q, body):
@@ -483,131 +439,107 @@ def api_submissions_create(q, body):
     raw = body["explanation"].strip()
     draft = ai_draft_entry(term, lang, country, raw)
     ts = iso(now_utc())
-    with db() as conn:
-        cur = conn.execute(
-            "INSERT INTO lexicon (term, variants, language, country, meaning, category, severity,"
-            " context_note, status, raw_submission, submitted_by, ai_drafted, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?,?,?, 'pending', ?,?,?,?,?)",
-            (term, json.dumps(draft["variants"]), lang, country, draft["meaning"], draft["category"],
-             draft["severity"], draft["context_note"], raw, body.get("submitted_by", "anonymous"),
-             draft["ai_drafted"], ts, ts))
-        row = conn.execute("SELECT * FROM lexicon WHERE id=?", (cur.lastrowid,)).fetchone()
-    return 201, row_to_dict(row, ["variants"])
+    row = STORE.lexicon_insert({
+        "term": term, "variants": draft["variants"], "language": lang, "country": country,
+        "meaning": draft["meaning"], "category": draft["category"], "severity": draft["severity"],
+        "context_note": draft["context_note"], "status": "pending", "raw_submission": raw,
+        "submitted_by": body.get("submitted_by", "anonymous"), "ai_drafted": draft["ai_drafted"],
+        "created_at": ts, "updated_at": ts})
+    return 201, row
 
 
 def api_submission_review(q, body, entry_id, decision):
-    entry_id = int(entry_id)
-    with db() as conn:
-        row = conn.execute("SELECT * FROM lexicon WHERE id=?", (entry_id,)).fetchone()
-        if not row:
-            return 404, {"error": "No entry with that id."}
-        if decision == "reject":
-            conn.execute("UPDATE lexicon SET status='rejected', approved_by=?, updated_at=? WHERE id=?",
-                         (body.get("reviewer", ""), iso(now_utc()), entry_id))
-        else:
-            require(body, "reviewer")
-            category = body.get("category", row["category"])
-            if category not in CATEGORIES or category == "unclassified":
-                raise ValueError("Choose a category before approving.")
-            severity = body.get("severity", row["severity"])
-            if severity not in SEVERITIES:
-                raise ValueError("Severity must be low, medium or high.")
-            conn.execute(
-                "UPDATE lexicon SET term=?, meaning=?, category=?, severity=?, variants=?, context_note=?,"
-                " status='approved', approved_by=?, updated_at=? WHERE id=?",
-                (body.get("term", row["term"]).strip(), body.get("meaning", row["meaning"]),
-                 category, severity,
-                 json.dumps(as_list(body["variants"]) if "variants" in body else json.loads(row["variants"])),
-                 body.get("context_note", row["context_note"]), body["reviewer"], iso(now_utc()), entry_id))
-        row = conn.execute("SELECT * FROM lexicon WHERE id=?", (entry_id,)).fetchone()
-    return 200, row_to_dict(row, ["variants"])
+    row = STORE.lexicon_get(entry_id)
+    if not row:
+        return 404, {"error": "No entry with that id."}
+    if decision == "reject":
+        row = STORE.lexicon_update(entry_id, {"status": "rejected", "approved_by": body.get("reviewer", ""),
+                                              "updated_at": iso(now_utc())})
+    else:
+        require(body, "reviewer")
+        category = body.get("category", row["category"])
+        if category not in CATEGORIES or category == "unclassified":
+            raise ValueError("Choose a category before approving.")
+        severity = body.get("severity", row["severity"])
+        if severity not in SEVERITIES:
+            raise ValueError("Severity must be low, medium or high.")
+        row = STORE.lexicon_update(entry_id, {
+            "term": body.get("term", row["term"]).strip(), "meaning": body.get("meaning", row["meaning"]),
+            "category": category, "severity": severity,
+            "variants": as_list(body["variants"]) if "variants" in body else row["variants"],
+            "context_note": body.get("context_note", row["context_note"]),
+            "status": "approved", "approved_by": body["reviewer"], "updated_at": iso(now_utc())})
+    return 200, row
 
 
 def api_reports_create(q, body):
     """What the extension sends when the user clicks 'Save as evidence'."""
     if not (body.get("matched_text") or body.get("lexicon_id")):
         raise ValueError("Send matched_text or lexicon_id.")
-    ts = iso(now_utc())
-    with db() as conn:
-        category = body.get("category")
-        if body.get("lexicon_id") and not category:
-            r = conn.execute("SELECT category FROM lexicon WHERE id=?", (body["lexicon_id"],)).fetchone()
-            category = r["category"] if r else None
-        leader_id = body.get("leader_id") or find_leader(conn, body.get("context_text"), body.get("matched_text"))
-        shot_file = shot_hash = None
-        if body.get("screenshot_b64"):
-            shot_file, shot_hash = save_b64_file(body["screenshot_b64"], "report", "screenshot.png")
-        cur = conn.execute(
-            "INSERT INTO reports (created_at, url, platform, lexicon_id, matched_text, context_text, category,"
-            " reporter_role, country, leader_id, screenshot_file, screenshot_sha256)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (ts, body.get("url"), (body.get("platform") or "other").lower(), body.get("lexicon_id"),
-             body.get("matched_text"), (body.get("context_text") or "")[:2000], category or "unclassified",
-             body.get("reporter_role"), (body.get("country") or "PH").upper(), leader_id, shot_file, shot_hash))
-        alert = check_spike(conn, leader_id) if leader_id else None
-    return 201, {"id": cur.lastrowid, "created_at": ts, "leader_id": leader_id,
+    category = body.get("category")
+    if body.get("lexicon_id") and not category:
+        entry = STORE.lexicon_get(body["lexicon_id"])
+        category = entry["category"] if entry else None
+    if category not in CATEGORIES:
+        category = "unclassified"
+    leader_id = body.get("leader_id") or find_leader(body.get("context_text"), body.get("matched_text"))
+    shot_file = shot_hash = None
+    if body.get("screenshot_b64"):
+        shot_file, shot_hash = save_b64_file(body["screenshot_b64"], "report", "screenshot.png")
+    saved = STORE.report_insert({
+        "created_at": iso(now_utc()), "url": body.get("url"), "platform": (body.get("platform") or "other").lower(),
+        "lexicon_id": body.get("lexicon_id"), "matched_text": body.get("matched_text"),
+        "context_text": (body.get("context_text") or "")[:2000], "category": category,
+        "reporter_role": body.get("reporter_role"), "country": (body.get("country") or "PH").upper(),
+        "leader_id": leader_id, "screenshot_file": shot_file, "screenshot_sha256": shot_hash})
+    alert = check_spike(leader_id) if leader_id else None
+    return 201, {"id": saved["id"], "created_at": saved["created_at"], "leader_id": leader_id,
                  "screenshot_sha256": shot_hash, "alert_triggered": alert}
 
 
 def api_reports_list(q, body):
     limit = min(int(q.get("limit", 100)), 500)
-    with db() as conn:
-        rows = conn.execute(
-            "SELECT r.*, l.name AS leader_name, x.term AS term FROM reports r"
-            " LEFT JOIN leaders l ON l.id=r.leader_id LEFT JOIN lexicon x ON x.id=r.lexicon_id"
-            " ORDER BY r.created_at DESC LIMIT ?", (limit,)).fetchall()
-    return 200, [dict(r) for r in rows]
+    return 200, [with_broad(r) for r in STORE.reports_list(limit)]
 
 
 def api_leaders_list(q, body):
     since = iso(now_utc() - timedelta(hours=24))
-    with db() as conn:
-        leaders = []
-        for r in conn.execute("SELECT * FROM leaders ORDER BY name"):
-            d = row_to_dict(r, ["name_variants"])
-            d["events"] = [dict(e) for e in conn.execute(
-                "SELECT * FROM events WHERE leader_id=? ORDER BY event_date", (r["id"],))]
-            d["reports_24h"] = conn.execute(
-                "SELECT COUNT(*) FROM reports WHERE leader_id=? AND created_at>=?", (r["id"], since)).fetchone()[0]
-            leaders.append(d)
+    leaders = []
+    for leader in STORE.leaders_list():
+        leaders.append({**leader, "events": STORE.events_for(leader["id"]),
+                        "reports_24h": STORE.reports_count(leader["id"], since)})
     return 200, leaders
 
 
 def api_leaders_create(q, body):
     require(body, "name")
     ts = iso(now_utc())
-    with db() as conn:
-        cur = conn.execute("INSERT INTO leaders (name, name_variants, organization, alert_contact, created_at)"
-                           " VALUES (?,?,?,?,?)",
-                           (body["name"].strip(), json.dumps(as_list(body.get("name_variants"))),
-                            body.get("organization"), body.get("alert_contact"), ts))
-        if str(body.get("event_name", "")).strip():
-            conn.execute("INSERT INTO events (leader_id, name, event_date, location, created_at) VALUES (?,?,?,?,?)",
-                         (cur.lastrowid, body["event_name"].strip(), body.get("event_date"),
-                          body.get("event_location"), ts))
-    return 201, {"id": cur.lastrowid}
+    leader_id = STORE.leader_insert({"name": body["name"].strip(), "name_variants": as_list(body.get("name_variants")),
+                                     "organization": body.get("organization"),
+                                     "alert_contact": body.get("alert_contact"), "created_at": ts})
+    if str(body.get("event_name", "")).strip():
+        STORE.event_insert({"leader_id": leader_id, "name": body["event_name"].strip(),
+                            "event_date": body.get("event_date"), "location": body.get("event_location"),
+                            "created_at": ts})
+    return 201, {"id": leader_id}
 
 
 def api_alerts_list(q, body):
-    with db() as conn:
-        rows = conn.execute("SELECT a.*, l.name AS leader_name FROM alerts a JOIN leaders l ON l.id=a.leader_id"
-                            " ORDER BY a.created_at DESC LIMIT 50").fetchall()
-    return 200, [dict(r) for r in rows]
+    return 200, STORE.alerts_list()
 
 
 def api_alert_seen(q, body, alert_id):
-    with db() as conn:
-        conn.execute("UPDATE alerts SET seen=1 WHERE id=?", (int(alert_id),))
+    STORE.alert_mark_seen(alert_id)
     return 200, {"ok": True}
 
 
 DEMO_POSTS = [
-    ("facebook", "{name} umiyak na naman sa session. iyakin talaga, paano ka mamumuno?", 1),
-    ("facebook", "Bumalik ka na sa kusina, {name}. Hindi ka para sa politika.", 4),
-    ("x", "{name} is too emotional to lead, everyone saw it at the hearing.", 2),
-    ("facebook", "LEAKED VIDEO ni {name}, panoorin bago ma-delete!!", 3),
-    ("tiktok", "Puppet lang ng asawa si {name}, siya talaga nagdedesisyon.", 6),
-    ("x", "{name} should be home with her kids, not in office.", 5),
+    ("facebook", "{name} umiyak na naman sa session. iyakin talaga, paano ka mamumuno?", 0),
+    ("facebook", "Bumalik ka na sa kusina, {name}. Hindi ka para sa politika.", 3),
+    ("x", "{name} is too emotional to lead, everyone saw it at the hearing.", 1),
+    ("facebook", "LEAKED VIDEO ni {name}, panoorin bago ma-delete!!", 2),
+    ("tiktok", "Puppet lang ng asawa si {name}, siya talaga nagdedesisyon.", 5),
+    ("x", "{name} should be home with her kids, not in office.", 4),
 ]
 
 
@@ -615,39 +547,29 @@ def api_demo_inject(q, body):
     """Adds a burst of fake reports about one leader so you can show the alert firing."""
     require(body, "leader_id")
     leader_id, count = int(body["leader_id"]), max(1, min(int(body.get("count", 12)), 60))
-    with db() as conn:
-        leader = conn.execute("SELECT name FROM leaders WHERE id=?", (leader_id,)).fetchone()
-        if not leader:
-            return 404, {"error": "No leader with that id."}
-        terms = {r["id"]: r for r in conn.execute("SELECT id, category FROM lexicon")}
-        for i in range(count):
-            platform, text, lex_id = DEMO_POSTS[i % len(DEMO_POSTS)]
-            when = iso(now_utc() - timedelta(minutes=7 * i))
-            conn.execute(
-                "INSERT INTO reports (created_at, url, platform, lexicon_id, matched_text, context_text, category,"
-                " reporter_role, country, leader_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (when, f"https://example.com/post/demo-{i}", platform, lex_id if lex_id in terms else None,
-                 text.format(name=leader["name"]), text.format(name=leader["name"]),
-                 terms[lex_id]["category"] if lex_id in terms else "unclassified", "ally", "PH", leader_id))
-        alert = check_spike(conn, leader_id)
-    return 201, {"inserted": count, "alert_triggered": alert}
+    leader = STORE.leader_get(leader_id)
+    if not leader:
+        return 404, {"error": "No leader with that id."}
+    approved = {e["term"]: e for e in STORE.lexicon_list("approved")}
+    for i in range(count):
+        platform, text, seed_idx = DEMO_POSTS[i % len(DEMO_POSTS)]
+        entry = approved.get(SEED_TERMS[seed_idx][0])
+        post = text.format(name=leader["name"])
+        STORE.report_insert({
+            "created_at": iso(now_utc() - timedelta(minutes=7 * i)), "url": f"https://example.com/post/demo-{i}",
+            "platform": platform, "lexicon_id": entry["id"] if entry else None, "matched_text": post,
+            "context_text": post, "category": entry["category"] if entry else "unclassified",
+            "reporter_role": "ally", "country": "PH", "leader_id": leader_id})
+    return 201, {"inserted": count, "alert_triggered": check_spike(leader_id)}
 
 
 def api_demo_reset_alerts(q, body):
-    with db() as conn:
-        conn.execute("DELETE FROM alerts")
-        conn.execute("DELETE FROM reports WHERE url LIKE 'https://example.com/post/demo-%'")
+    STORE.demo_reset()
     return 200, {"ok": True}
 
 
 def api_incidents_list(q, body):
-    sql, args = ("SELECT i.*, l.name AS leader_name FROM incidents i LEFT JOIN leaders l ON l.id=i.leader_id", [])
-    if q.get("leader_id"):
-        sql += " WHERE i.leader_id=?"
-        args.append(int(q["leader_id"]))
-    with db() as conn:
-        rows = conn.execute(sql + " ORDER BY i.created_at DESC", args).fetchall()
-    return 200, [row_to_dict(r, ["files"]) for r in rows]
+    return 200, STORE.incidents_list(q.get("leader_id"))
 
 
 def api_incidents_create(q, body):
@@ -657,13 +579,92 @@ def api_incidents_create(q, body):
         if f.get("data_b64"):
             fname, digest = save_b64_file(f["data_b64"], "incident", f.get("name", "file.bin"))
             stored.append({"name": f.get("name", fname), "file": fname, "sha256": digest})
-    with db() as conn:
-        cur = conn.execute(
-            "INSERT INTO incidents (leader_id, created_at, occurred_at, description, witnesses, files)"
-            " VALUES (?,?,?,?,?,?)",
-            (body.get("leader_id") or None, iso(now_utc()), body.get("occurred_at"),
-             body["description"].strip(), body.get("witnesses", ""), json.dumps(stored)))
-    return 201, {"id": cur.lastrowid, "files": stored}
+    incident_id = STORE.incident_insert({
+        "leader_id": body.get("leader_id") or None, "created_at": iso(now_utc()),
+        "occurred_at": body.get("occurred_at") or None, "description": body["description"].strip(),
+        "witnesses": body.get("witnesses", ""), "files": stored})
+    return 201, {"id": incident_id, "files": stored}
+
+
+def api_stats(q, body):
+    """Numbers for the trends dashboard: what is being said, about whom, where, and is it rising."""
+    days = max(7, min(int(q.get("days", 14)), 90))
+    now = now_utc()
+    start_day = (now - timedelta(days=days - 1)).date()
+    rows = STORE.reports_since(iso(datetime.combine(start_day - timedelta(days=days), datetime.min.time(),
+                                                    tzinfo=timezone.utc)))
+
+    def day_of(r):
+        return str(r["created_at"])[:10]
+
+    def at(r):
+        return parse_ts(r["created_at"])
+
+    window = [r for r in rows if day_of(r) >= start_day.isoformat()]
+    earlier = [r for r in rows if day_of(r) < start_day.isoformat()]
+    dates = [(start_day + timedelta(days=i)).isoformat() for i in range(days)]
+
+    leaders = {l["id"]: l for l in STORE.leaders_list()}
+    per_leader_day = {lid: {d: 0 for d in dates} for lid in leaders}
+    unmatched = {d: 0 for d in dates}
+    for r in window:
+        target = per_leader_day.get(r["leader_id"], unmatched) if r["leader_id"] else unmatched
+        target[day_of(r)] = target.get(day_of(r), 0) + 1
+
+    def tally(items, key):
+        out = {}
+        for r in items:
+            k = key(r) or "unknown"
+            out[k] = out.get(k, 0) + 1
+        return out
+
+    week_ago, two_weeks_ago = now - timedelta(days=7), now - timedelta(days=14)
+    this_week = [r for r in rows if at(r) >= week_ago]
+    last_week = [r for r in rows if two_weeks_ago <= at(r) < week_ago]
+    cat_now, cat_before = tally(this_week, lambda r: r["category"]), tally(last_week, lambda r: r["category"])
+    narratives = sorted(
+        ({"category": c, "label": CATEGORIES.get(c, c), "broad_category": BROAD_OF.get(c, "unclassified"),
+          "this_week": cat_now.get(c, 0), "last_week": cat_before.get(c, 0),
+          "change": cat_now.get(c, 0) - cat_before.get(c, 0)}
+         for c in set(cat_now) | set(cat_before)),
+        key=lambda n: (-n["this_week"], -n["change"]))
+
+    since_24h = now - timedelta(hours=24)
+    leader_rows = []
+    for lid, leader in leaders.items():
+        mine = [r for r in rows if r["leader_id"] == lid]
+        last_24h = sum(1 for r in mine if at(r) >= since_24h)
+        prev_7d = sum(1 for r in mine if now - timedelta(days=8) <= at(r) < since_24h)
+        top = sorted(tally([r for r in mine if at(r) >= week_ago], lambda r: r["category"]).items(),
+                     key=lambda kv: -kv[1])
+        events = [e for e in STORE.events_for(lid) if (e.get("event_date") or "") >= now.date().isoformat()]
+        leader_rows.append({
+            "id": lid, "name": leader["name"], "last_24h": last_24h,
+            "usual_per_day": round(prev_7d / 7.0, 1), "this_week": sum(1 for r in mine if at(r) >= week_ago),
+            "top_narrative": CATEGORIES.get(top[0][0], top[0][0]) if top else None,
+            "next_event": events[0] if events else None})
+    leader_rows.sort(key=lambda l: -l["last_24h"])
+
+    alerts = STORE.alerts_list()
+    return 200, {
+        "days": dates,
+        "totals": {"reports": len(window), "last_24h": sum(1 for r in rows if at(r) >= since_24h),
+                   "this_week": len(this_week), "last_week": len(last_week),
+                   "leaders_targeted": len({r["leader_id"] for r in window if r["leader_id"]}),
+                   "open_alerts": sum(1 for a in alerts if not a["seen"])},
+        "series": [{"leader_id": lid, "name": leaders[lid]["name"], "counts": [per_leader_day[lid][d] for d in dates]}
+                   for lid in leaders]
+                  + ([{"leader_id": None, "name": "Not matched to a leader", "counts": [unmatched[d] for d in dates]}]
+                     if any(unmatched.values()) else []),
+        "narratives": narratives,
+        "broad": [{"broad_category": b, "label": BROAD_LABELS[b],
+                   "count": sum(1 for r in window if BROAD_OF.get(r["category"], "unclassified") == b)}
+                  for b in BROAD_LABELS],
+        "platforms": sorted(({"platform": p, "count": n} for p, n in tally(window, lambda r: r["platform"]).items()),
+                            key=lambda p: -p["count"]),
+        "leaders": leader_rows,
+        "database": STORE.kind,
+    }
 
 
 def api_legal_info(q, body):
@@ -679,6 +680,7 @@ def api_legal_info(q, body):
 ROUTES = [
     ("GET", r"/api/status", api_status),
     ("GET", r"/api/lexicon", api_lexicon),
+    ("GET", r"/api/stats", api_stats),
     ("GET", r"/api/submissions", api_submissions_list),
     ("POST", r"/api/submissions", api_submissions_create),
     ("POST", r"/api/submissions/(\d+)/(approve|reject)", api_submission_review),
@@ -745,12 +747,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, fh.read(), "text/html; charset=utf-8")
         if method == "GET" and path.startswith("/evidence/"):
             name = os.path.basename(path)          # blocks ../ tricks
-            full = os.path.join(EVIDENCE_DIR, name)
-            if not os.path.isfile(full):
+            content = STORE.read_file(name)
+            if content is None:
                 return self._json(404, {"error": "File not found."})
-            with open(full, "rb") as fh:
-                ext = os.path.splitext(name)[1].lower()
-                return self._send(200, fh.read(), MIME.get(ext, "application/octet-stream"))
+            ext = os.path.splitext(name)[1].lower()
+            return self._send(200, content, MIME.get(ext, "application/octet-stream"))
 
         for m, pattern, fn in ROUTES:
             match = re.fullmatch(pattern, path)
@@ -765,6 +766,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(code, payload)
             except (ValueError, KeyError, json.JSONDecodeError) as e:
                 return self._json(400, {"error": str(e)})
+            except SupabaseError as e:
+                print("Database error:", e)
+                return self._json(502, {"error": "The online database didn't respond as expected. See the terminal."})
             except Exception as e:
                 print("Server error:", repr(e))
                 return self._json(500, {"error": "Something went wrong on the server. See the terminal."})
@@ -772,8 +776,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    init_db()
+    STORE = open_store(DB_PATH, EVIDENCE_DIR)
+    seed_demo_data()
     print(f"\nKalasag demo running at http://localhost:{PORT}")
+    print("Database:", "Supabase (shared, online)" if STORE.kind == "supabase"
+          else "local file kalasag.db (set SUPABASE_URL and SUPABASE_SECRET_KEY in website/.env to share data)")
     print(f"Test pages for the extension: http://localhost:{PORT}/test-feed  and  /test-article")
     print("AI drafting and summaries:", "ON" if API_KEY else "OFF (set ANTHROPIC_API_KEY to turn on)")
     print("Press Ctrl+C to stop.\n")

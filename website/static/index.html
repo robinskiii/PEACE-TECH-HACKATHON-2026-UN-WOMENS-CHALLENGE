@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="kalasag" content="skip"><!-- the extension skips this page: it shows the words on purpose -->
 <title>Kalasag · partner dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap">
@@ -104,6 +105,60 @@ tr:last-child td { border-bottom: 0; }
 .leader-count span { font-size: 12px; color: var(--ink-soft); }
 .small { font-size: 13px; color: var(--ink-soft); }
 
+/* ---------- Trends (series colors: validated categorical palette, light + dark) */
+:root { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
+  --grid: #E3E6EC; --bar: #2a78d6; }
+@media (prefers-color-scheme: dark) {
+  :root { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767;
+    --grid: #2E3850; --bar: #3987e5; }
+}
+.filters { display: flex; gap: 10px; align-items: center; margin: 0 0 18px; flex-wrap: wrap; }
+.filters select { width: auto; }
+.tiles { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 18px; }
+.tile { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; }
+.tile-label { font-size: 13px; color: var(--ink-soft); margin: 0 0 4px; }
+.tile-value { font-size: 30px; font-weight: 700; line-height: 1.1; margin: 0; }
+.tile-delta { font-size: 13px; color: var(--ink-soft); margin: 4px 0 0; }
+.tile-delta.up { color: var(--red); } .tile-delta.down { color: var(--teal); }
+.tile.hot { border-color: var(--marigold); background: var(--marigold-soft); }
+.chart-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 18px 18px 12px; margin-bottom: 18px; position: relative; }
+.chart-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+.chart-card .sub { font-size: 13px; color: var(--ink-soft); margin: 0 0 12px; }
+.chart-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.chart-grid .chart-card { margin-bottom: 0; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); margin: 0 0 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+svg.chart { display: block; width: 100%; overflow: visible; }
+svg.chart text { fill: var(--ink-soft); font: 12px var(--font); }
+svg.chart .end-label { fill: var(--ink); font-weight: 600; }
+svg.chart .grid { stroke: var(--grid); stroke-width: 1; }
+svg.chart:focus-visible { outline: 3px solid var(--marigold); outline-offset: 4px; }
+.hbars { display: grid; gap: 10px; }
+.hbar { display: grid; grid-template-columns: minmax(120px, 42%) 1fr; gap: 10px; align-items: center; font-size: 13px; cursor: default; }
+.hbar-label { color: var(--ink); line-height: 1.3; }
+.hbar-label .hbar-change { display: block; font-size: 12px; }
+.hbar-track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hbar-fill { height: 14px; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; flex: none; transition: opacity .15s; }
+.hbar:hover .hbar-fill, .hbar:focus .hbar-fill { opacity: .8; }
+.hbar-value { color: var(--ink); font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hbar-change { color: var(--ink-soft); font-weight: 400; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 6px; padding: 8px 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 5; min-width: 150px; }
+.tip-date { color: var(--ink-soft); margin-bottom: 4px; }
+.tip-row { display: flex; align-items: center; gap: 8px; }
+.tip-row i { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+.tip-row strong { min-width: 2ch; }
+.status-spike { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 2px 8px;
+  border-radius: 10px; background: var(--marigold-soft); color: var(--ink); border: 1px solid var(--marigold); }
+.status-normal { font-size: 12px; color: var(--ink-soft); }
+details.table-view { margin-top: 8px; font-size: 13px; }
+details.table-view summary { cursor: pointer; color: var(--ink-soft); }
+details.table-view .table-wrap { margin-top: 8px; max-height: 260px; overflow: auto; }
+.db-badge { font-size: 12px; color: var(--ink-soft); }
+
 @media (max-width: 760px) {
   .shell { grid-template-columns: 1fr; }
   .rail { position: static; height: auto; padding: 16px; }
@@ -121,7 +176,8 @@ tr:last-child td { border-bottom: 0; }
     <p class="brand-sub">Partner dashboard · Philippines pilot</p>
     <div class="weave" aria-hidden="true"></div>
     <nav class="nav" aria-label="Sections">
-      <button data-tab="words" aria-current="page">Word database <span class="count" id="pending-count" hidden></span></button>
+      <button data-tab="trends" aria-current="page">Trends</button>
+      <button data-tab="words">Word database <span class="count" id="pending-count" hidden></span></button>
       <button data-tab="alerts">Leaders and alerts <span class="count" id="alert-count" hidden></span></button>
       <button data-tab="reports">Reports</button>
       <button data-tab="incidents">Incidents</button>
@@ -130,8 +186,50 @@ tr:last-child td { border-bottom: 0; }
   </aside>
 
   <main>
+    <!-- TRENDS -->
+    <section id="tab-trends">
+      <h1>Trends</h1>
+      <p class="lede">What is being said about women leaders in the Philippines, where, and whether it is rising. Built from every report saved with the extension.</p>
+      <div class="filters">
+        <label for="t-days" style="margin:0">Period</label>
+        <select id="t-days"><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option></select>
+        <button class="btn quiet" id="t-refresh" type="button">Refresh</button>
+        <span class="db-badge" id="t-db"></span>
+      </div>
+      <div class="tiles" id="t-tiles"></div>
+
+      <div class="chart-card">
+        <h3>Reports per day, by leader</h3>
+        <p class="sub">A sudden climb is an early warning. Hover for exact numbers.</p>
+        <div class="legend" id="t-legend"></div>
+        <div id="t-line"></div>
+        <details class="table-view"><summary>Show as a table</summary><div class="table-wrap" id="t-line-table"></div></details>
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Narratives this week</h3>
+          <p class="sub">Most reported attack types, compared with the week before.</p>
+          <div class="hbars" id="t-narratives"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Type of attack</h3>
+          <p class="sub">The guide's broad categories, in the selected period.</p>
+          <div class="hbars" id="t-broad"></div>
+          <h3 style="margin-top:22px">Where it happens</h3>
+          <p class="sub">Platform the report came from.</p>
+          <div class="hbars" id="t-platforms"></div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:28px">Leaders</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Leader</th><th>Last 24 hours</th><th>Usual per day</th><th>This week</th><th>Main narrative</th><th>Next event</th><th>Status</th></tr></thead>
+        <tbody id="t-leaders"></tbody></table></div>
+    </section>
+
     <!-- WORD DATABASE -->
-    <section id="tab-words">
+    <section id="tab-words" hidden>
       <h1>Word database</h1>
       <p class="lede">Communities suggest terms used to attack women leaders. A verified partner checks each one before the browser extension starts flagging it.</p>
 
@@ -244,7 +342,7 @@ function showTab(name) {
     if (b.dataset.tab === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
   document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
-  ({ words: loadWords, alerts: loadAlerts, reports: loadReports, incidents: loadIncidents })[name]();
+  ({ trends: loadTrends, words: loadWords, alerts: loadAlerts, reports: loadReports, incidents: loadIncidents })[name]();
 }
 
 // ---------- status
@@ -426,8 +524,182 @@ $("#incident-form").addEventListener("submit", async (ev) => {
   btn.disabled = false;
 });
 
+// ---------- trends
+const SERIES_VARS = ["--series-1", "--series-2", "--series-3", "--series-4", "--series-5", "--series-6", "--series-7", "--series-8"];
+const seriesColor = (i) => `var(${SERIES_VARS[i % SERIES_VARS.length]})`;
+const shortDate = (iso) => new Date(iso + "T00:00:00").toLocaleDateString([], { day: "numeric", month: "short" });
+const platformName = (p) => ({ facebook: "Facebook", x: "X (Twitter)", tiktok: "TikTok", youtube: "YouTube",
+  instagram: "Instagram", reddit: "Reddit", other: "Other sites" }[p] || p);
+
+async function loadTrends() {
+  const days = $("#t-days").value;
+  const s = await api(`/api/stats?days=${days}`);
+  $("#t-db").textContent = s.database === "supabase" ? "Live data from the shared database" : "Data from this computer only (local file)";
+  drawTiles(s.totals);
+  drawLineChart(s.days, s.series);
+  drawNarratives(s.narratives);
+  drawBars($("#t-broad"), s.broad.filter((b) => b.count || b.broad_category !== "unclassified")
+    .map((b) => ({ label: b.label, value: b.count })));
+  drawBars($("#t-platforms"), s.platforms.map((p) => ({ label: platformName(p.platform), value: p.count })));
+  drawLeaderTable(s.leaders);
+}
+$("#t-days").addEventListener("change", loadTrends);
+$("#t-refresh").addEventListener("click", loadTrends);
+
+function drawTiles(t) {
+  const diff = t.this_week - t.last_week;
+  const pct = t.last_week ? Math.round((diff / t.last_week) * 100) : null;
+  const delta = diff === 0 ? "Same as the week before"
+    : `${diff > 0 ? "+" : "−"}${Math.abs(diff)}${pct !== null ? ` (${diff > 0 ? "+" : "−"}${Math.abs(pct)}%)` : ""} vs the week before`;
+  $("#t-tiles").innerHTML = `
+    <div class="tile"><p class="tile-label">Reports this week</p><p class="tile-value">${t.this_week.toLocaleString()}</p>
+      <p class="tile-delta ${diff > 0 ? "up" : diff < 0 ? "down" : ""}">${esc(delta)}</p></div>
+    <div class="tile"><p class="tile-label">Reports in the last 24 hours</p><p class="tile-value">${t.last_24h.toLocaleString()}</p></div>
+    <div class="tile"><p class="tile-label">Leaders targeted</p><p class="tile-value">${t.leaders_targeted}</p>
+      <p class="tile-delta">in the selected period</p></div>
+    <div class="tile ${t.open_alerts ? "hot" : ""}"><p class="tile-label">Open spike alerts</p><p class="tile-value">${t.open_alerts}</p>
+      <p class="tile-delta">${t.open_alerts ? "See Leaders and alerts" : "Nothing unusual right now"}</p></div>`;
+}
+
+function niceMax(v) {
+  if (v <= 4) return 4;
+  const step = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * step >= v) return m * step;
+  return 10 * step;
+}
+
+function drawLineChart(days, series) {
+  const host = $("#t-line");
+  const W = Math.max(host.clientWidth || 700, 320), H = 260;
+  const narrow = W < 560;
+  const m = { l: 34, r: narrow ? 16 : 150, t: 12, b: 28 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, n = days.length;
+  const max = niceMax(Math.max(1, ...series.flatMap((s) => s.counts)));
+  const x = (i) => m.l + (n === 1 ? iw / 2 : (i * iw) / (n - 1));
+  const y = (v) => m.t + ih - (v / max) * ih;
+  const ticks = [0, max / 4, max / 2, (3 * max) / 4, max].filter((v) => Number.isInteger(v));
+  const every = Math.ceil(n / (narrow ? 4 : 7));
+
+  $("#t-legend").innerHTML = series.map((s, i) =>
+    `<span><i style="background:${seriesColor(i)}"></i>${esc(s.name)}</span>`).join("");
+
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" height="${H}" role="img" tabindex="0"
+    aria-label="Reports per day by leader. Use left and right arrow keys to read each day.">`;
+  ticks.forEach((v) => {
+    svg += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/>`;
+    svg += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  });
+  days.forEach((d, i) => {
+    if ((i % every === 0 && n - 1 - i >= every / 2) || i === n - 1) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${esc(shortDate(d))}</text>`;
+  });
+  series.forEach((s, i) => {
+    const pts = s.counts.map((v, j) => `${x(j).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    svg += `<polyline points="${pts}" fill="none" stroke="${seriesColor(i)}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  // End dots and direct labels (skipped when they would overlap; the legend and tooltip still carry them)
+  const ends = series.map((s, i) => ({ i, v: s.counts[n - 1], yy: y(s.counts[n - 1]), name: s.name }));
+  const sorted = [...ends].sort((a, b) => a.yy - b.yy);
+  const clash = sorted.some((e, k) => k && e.yy - sorted[k - 1].yy < 16);
+  ends.forEach((e) => {
+    svg += `<circle cx="${x(n - 1)}" cy="${e.yy}" r="4" fill="${seriesColor(e.i)}" stroke="var(--surface)" stroke-width="2"/>`;
+    if (!narrow && !clash) {
+      const label = e.name.length > 18 ? e.name.slice(0, 17) + "…" : e.name;
+      svg += `<text class="end-label" x="${x(n - 1) + 10}" y="${e.yy + 4}">${esc(label)} · ${e.v}</text>`;
+    }
+  });
+  svg += `<line id="t-cross" class="grid" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" style="stroke:var(--ink-soft);display:none"/>`;
+  svg += `<rect id="t-hit" x="${m.l - 10}" y="${m.t}" width="${iw + 20}" height="${ih}" fill="transparent"/>`;
+  svg += `</svg>`;
+  host.innerHTML = svg;
+
+  // Crosshair + tooltip (mouse and keyboard)
+  const card = host.closest(".chart-card");
+  let tip = card.querySelector(".tip");
+  if (!tip) { tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; card.append(tip); }
+  const svgEl = host.querySelector("svg"), cross = host.querySelector("#t-cross");
+  let current = n - 1;
+  const show = (i) => {
+    current = Math.max(0, Math.min(n - 1, i));
+    const px = x(current);
+    cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.style.display = "";
+    tip.innerHTML = "";
+    const date = document.createElement("div"); date.className = "tip-date";
+    date.textContent = new Date(days[current] + "T00:00:00").toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+    tip.append(date);
+    series.forEach((s, k) => {
+      const row = document.createElement("div"); row.className = "tip-row";
+      const key = document.createElement("i"); key.style.background = seriesColor(k);
+      const val = document.createElement("strong"); val.textContent = s.counts[current];
+      const name = document.createElement("span"); name.textContent = s.name;
+      row.append(key, val, name); tip.append(row);
+    });
+    tip.hidden = false;
+    const scale = svgEl.getBoundingClientRect().width / W;
+    const left = host.offsetLeft + px * scale;
+    tip.style.top = `${host.offsetTop + 8}px`;
+    tip.style.left = `${left + 12 + tip.offsetWidth > card.clientWidth ? left - tip.offsetWidth - 12 : left + 12}px`;
+  };
+  const hide = () => { tip.hidden = true; cross.style.display = "none"; };
+  host.querySelector("#t-hit").addEventListener("pointermove", (ev) => {
+    const r = svgEl.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    show(Math.round(((px - m.l) / iw) * (n - 1)));
+  });
+  host.querySelector("#t-hit").addEventListener("pointerleave", hide);
+  svgEl.addEventListener("focus", () => show(current));
+  svgEl.addEventListener("blur", hide);
+  svgEl.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowLeft") { show(current - 1); ev.preventDefault(); }
+    if (ev.key === "ArrowRight") { show(current + 1); ev.preventDefault(); }
+  });
+
+  // Table view: every value reachable without hovering
+  $("#t-line-table").innerHTML = `<table><thead><tr><th>Day</th>${series.map((s) => `<th>${esc(s.name)}</th>`).join("")}</tr></thead>
+    <tbody>${days.map((d, i) => `<tr><td>${esc(shortDate(d))}</td>${series.map((s) => `<td>${s.counts[i]}</td>`).join("")}</tr>`).reverse().join("")}</tbody></table>`;
+}
+
+function drawBars(el, items, sub = () => "") {
+  if (!items.length || !items.some((it) => it.value)) {
+    el.innerHTML = `<p class="small" style="margin:0">No reports in this period.</p>`;
+    return;
+  }
+  const max = Math.max(...items.map((it) => it.value));
+  el.innerHTML = items.map((it, i) => `
+    <div class="hbar" tabindex="0" title="${esc(it.label)}: ${it.value}">
+      <span class="hbar-label">${esc(it.label)}${sub(it, i)}</span>
+      <span class="hbar-track"><span class="hbar-fill" style="width:${Math.max(1, (it.value / max) * 80)}%"></span>
+        <span class="hbar-value">${it.value}</span></span>
+    </div>`).join("");
+}
+
+function drawNarratives(list) {
+  const items = list.filter((n) => n.this_week || n.last_week).slice(0, 6)
+    .map((n) => ({ label: n.label, value: n.this_week, change: n.change }));
+  drawBars($("#t-narratives"), items, (it) => {
+    const c = it.change === 0 ? "same as last week" : `${it.change > 0 ? "+" : "−"}${Math.abs(it.change)} vs last week`;
+    return `<span class="hbar-change">${c}</span>`;
+  });
+}
+
+function drawLeaderTable(leaders) {
+  $("#t-leaders").innerHTML = leaders.length ? leaders.map((l) => {
+    const spike = l.last_24h >= 5 && l.last_24h >= 3 * Math.max(l.usual_per_day, 1);
+    const ev = l.next_event;
+    return `<tr>
+      <td><strong>${esc(l.name)}</strong></td>
+      <td>${l.last_24h}</td><td>${l.usual_per_day}</td><td>${l.this_week}</td>
+      <td>${esc(l.top_narrative || "–")}</td>
+      <td>${ev ? `${esc(ev.name)}<div class="small">${esc(ev.event_date || "")}</div>` : `<span class="small">None registered</span>`}</td>
+      <td>${spike ? `<span class="status-spike">▲ Spike</span>` : `<span class="status-normal">Normal</span>`}</td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty">No leaders registered yet.</td></tr>`;
+}
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (!$("#tab-trends").hidden) loadTrends(); }, 250); });
+
 // ---------- start
-loadStatus().then(loadWords).then(() => api("/api/alerts")).then((a) => {
+loadStatus().then(loadTrends).then(() => api("/api/submissions?status=pending")).then((p) => {
+  const pc = $("#pending-count"); pc.hidden = !p.length; pc.textContent = p.length;
+}).then(() => api("/api/alerts")).then((a) => {
   const unseen = a.filter((x) => !x.seen).length; const ac = $("#alert-count"); ac.hidden = !unseen; ac.textContent = unseen;
 }).catch((e) => { document.querySelector("main").insertAdjacentHTML("afterbegin", `<p class="msg err">Can't reach the server: ${esc(e.message)}. Is app.py running?</p>`); });
 </script>
