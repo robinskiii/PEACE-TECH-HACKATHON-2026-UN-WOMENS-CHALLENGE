@@ -151,8 +151,16 @@ create table reports (
   country           text not null default 'PH',
   leader_id         bigint references leaders (id) on delete set null,
   screenshot_file   text,
-  screenshot_sha256 text check (screenshot_sha256 is null or screenshot_sha256 ~ '^[0-9a-f]{64}$')
+  screenshot_sha256 text check (screenshot_sha256 is null or screenshot_sha256 ~ '^[0-9a-f]{64}$'),
+  -- Expert review: reports people highlight themselves (and AI-only finds) wait as 'pending'
+  -- until an expert approves them. Only approved reports count in Trends and alerts.
+  source            text not null default 'word_list' check (source in ('word_list', 'ai', 'highlight')),
+  status            text not null default 'approved' check (status in ('pending', 'approved', 'rejected')),
+  reporter_note     text,
+  reviewed_by       text,
+  reviewed_at       timestamptz
 );
+create index reports_status_idx on reports (status, created_at desc);
 create index reports_leader_time on reports (leader_id, created_at);
 create index reports_time on reports (created_at);
 
