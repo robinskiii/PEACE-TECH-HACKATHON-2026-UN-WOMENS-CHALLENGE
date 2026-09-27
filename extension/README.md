@@ -19,7 +19,9 @@ After changing any code, click the reload icon on the extension's card in `chrom
 3. **AI check.** In "smart" mode, only blocks that mention women, gendered words or public roles are sent, 12 at a time, to the AI through `background.js`. The model decides from context whether each one targets women, and returns a category, severity, target, the harmful quote and a one-line reason. This is how it catches attacks that aren't in the word list, and avoids flagging fair criticism or news reporting.
 4. **Key fallback.** `kalasagCallModel` in `shared.js` does the same as the team's Python `ask()`: shared key first, team key if that's busy, refused or blocked, and the last error if both fail.
 5. **Highlights and pop-up.** Flags are drawn in an overlay on top of the page, so the site's own code is never modified. Clicking "Kalasag" opens the pop-up with the reason, legal information and reporting steps from the website, plus **Save as evidence** and **Not harmful**.
-6. **Evidence.** Saving takes a screenshot and sends it with the text and link to `POST /api/reports`. If the website is down, the report is kept and can be sent later from the toolbar button.
+6. **Evidence.** Saving takes a screenshot, adds a strip at the bottom with the page address and the time (UTC), and sends it with the text and link to `POST /api/reports`. If the website is down, the report is kept and can be sent later from the toolbar button.
+7. **Report something yourself.** Select any text on a page, right-click and choose **Report to Kalasag**. Pick the kind of attack (or "not sure"), add a note on why it's disinformation or abuse, and click **Save as evidence**. The highlighted text stays marked in yellow in the screenshot.
+8. **Expert review.** Posts that matched the verified word list count straight away. Highlighted text, and posts only the AI found, wait on the dashboard's Reports tab until an expert approves them.
 
 If there's no key or the AI call fails, word-list matches are still shown with a dashed outline and marked "Word list only".
 
@@ -29,7 +31,8 @@ If there's no key or the AI call fails, word-list matches are still shown with a
 2. Open `http://localhost:8000/test-article`: the article reporting on abuse stays clean, while the misogynistic comments and the threat are flagged.
 3. Try a real news site to show it works anywhere.
 4. Click a flag, then **Save as evidence**, and show it arriving on the dashboard's Reports tab.
-5. In Settings, switch the role to "I'm the one being targeted" and show flagged content being blurred.
+5. Highlight part of a post the extension didn't flag, right-click, **Report to Kalasag**, save it, then approve it under **Waiting for review** on the Reports tab.
+6. In Settings, switch the role to "I'm the one being targeted" and show flagged content being blurred.
 
 ## Files
 

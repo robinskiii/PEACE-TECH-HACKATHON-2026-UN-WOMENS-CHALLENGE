@@ -211,7 +211,7 @@
     .panel { position: fixed; right: 16px; top: 16px; width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
       overflow: auto; background: #fff; border-radius: 12px; box-shadow: 0 16px 48px rgba(20,26,43,.30);
       pointer-events: auto; padding: 18px 18px 16px; box-sizing: border-box; }
-    .panel[hidden], .capturing .panel, .capturing .veil { display: none; }
+    .panel[hidden], .capturing .panel, .capturing .veil, .capturing .tag { display: none; }
     .stripe { height: 5px; border-radius: 3px; margin: -4px 0 14px;
       background: repeating-linear-gradient(90deg, #E4A11B 0 10px, transparent 10px 14px, #1F2A48 14px 20px, transparent 20px 24px); }
     .head { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
@@ -234,6 +234,11 @@
     .btn:disabled { opacity: .55; cursor: wait; }
     .status { font-size: 13px; margin-top: 10px; } .status.ok { color: #17665E; } .status.err { color: #A33A2F; }
     .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #4A5572; word-break: break-all; }
+    .box.user { --c: #D63F7C; --bg: rgba(255,216,77,.28); border-style: solid; border-radius: 3px; }
+    label.f { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    select, textarea { width: 100%; box-sizing: border-box; font: 14px system-ui, sans-serif; color: inherit;
+      background: transparent; border: 1px solid #D8DCE4; border-radius: 7px; padding: 7px 9px; }
+    textarea { min-height: 64px; resize: vertical; }
     @media (prefers-color-scheme: dark) {
       .root { color: #E8EBF3; } .panel { background: #1C2438; } .x, .muted, blockquote, .hash { color: #A7AFC4; }
       .chip { background: #2A3350; } .chip.high { background: #3B1F1C; color: #EC8B80; } .chip.medium { background: #3A2F16; }
@@ -383,11 +388,12 @@
 
   function closePanel() {
     panel.hidden = true;
+    clearHighlight();
     const f = openFlag;
     openFlag = null;
     if (f && f.tag.isConnected) f.tag.focus();
   }
-  addEventListener("keydown", (e) => { if (e.key === "Escape" && openFlag) closePanel(); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && (openFlag || !panel.hidden)) closePanel(); });
 
   async function saveEvidence(flag, btn, status) {
     const s = state.settings;
@@ -401,6 +407,7 @@
     await sleep(150);
     const hint = flag.hints[0];
     const res = await send({ type: "saveEvidence", report: {
+      source: hint ? "word_list" : "ai",
       lexicon_id: hint ? hint.id : null,
       matched_text: flag.quote || (hint && hint.matched) || flag.text.slice(0, 200),
       context_text: flag.text,
@@ -427,12 +434,132 @@
     }
   }
 
+  // ------------------------------------------------ report text the user highlighted
+  // Right-click selected text > "Report to Kalasag". The report goes to experts for review
+  // before it counts anywhere, so people can report things the word list doesn't know yet.
+  let highlight = null;   // { boxes, rects, block }
+
+  function clearHighlight() {
+    if (!highlight) return;
+    highlight.boxes.forEach((b) => b.remove());
+    removeEventListener("scroll", highlight.follow, true);
+    highlight = null;
+  }
+
+  function markSelection() {
+    clearHighlight();
+    const sel = getSelection();
+    if (!sel || !sel.rangeCount || sel.isCollapsed) return null;
+    const range = sel.getRangeAt(0).cloneRange();
+    const node = range.commonAncestorContainer;
+    const block = blockFor(node.nodeType === 3 ? node : (node.firstChild || node)) || node.parentElement || document.body;
+    mountOverlay();
+    const boxes = [];
+    const draw = () => {
+      boxes.forEach((b) => b.remove());
+      boxes.length = 0;
+      for (const r of range.getClientRects()) {
+        if (r.width < 2 || r.height < 2) continue;
+        const b = h("div", { class: "box user" });
+        Object.assign(b.style, { display: "block", left: `${r.left - 2}px`, top: `${r.top - 1}px`,
+          width: `${r.width + 4}px`, height: `${r.height + 2}px` });
+        boxesEl.append(b);
+        boxes.push(b);
+      }
+    };
+    draw();
+    highlight = { boxes, block, range, follow: () => requestAnimationFrame(draw), draw };
+    addEventListener("scroll", highlight.follow, { capture: true, passive: true });
+    return highlight;
+  }
+
+  async function openHighlightPanel(selectedText) {
+    if (!state.settings) await loadSettings();
+    const s = state.settings;
+    openFlag = null;
+    const hl = markSelection();
+    const text = (selectedText || (hl && hl.range.toString()) || "").replace(/\s+/g, " ").trim().slice(0, 1000);
+    if (!text) return;
+    const context = hl && hl.block ? textOf(hl.block).slice(0, 2000) : text;
+    const category = h("select", { id: "kg-cat" },
+      h("option", { value: "unclassified" }, "Not sure, let an expert decide"),
+      ...Object.entries(KALASAG_CATEGORIES).filter(([k]) => k !== "unclassified")
+        .map(([k, v]) => h("option", { value: k }, v)));
+    const note = h("textarea", { id: "kg-note", placeholder: "E.g. this photo is from another event, or this quote was never said" });
+    const status = h("p", { class: "status", role: "status" });
+    const saveBtn = h("button", { class: "btn primary", type: "button",
+      onclick: () => saveHighlight({ text, context, category: category.value, note: note.value.trim() }, saveBtn, status) },
+      "Save as evidence");
+    panel.replaceChildren(
+      h("div", { class: "stripe" }),
+      h("div", { class: "head" },
+        h("h2", {}, "Report what you highlighted"),
+        h("button", { class: "x", type: "button", "aria-label": "Close", onclick: closePanel }, "×")),
+      h("blockquote", {}, text.length > 400 ? text.slice(0, 400) + "…" : text),
+      h("label", { class: "f", for: "kg-cat" }, "What kind of attack is it?"),
+      category,
+      h("label", { class: "f", for: "kg-note" }, "Why do you think it's disinformation or abuse? (optional)"),
+      note,
+      h("p", { class: "tip" }, "An expert checks every highlighted report before it's counted. " +
+        "A screenshot with this page's address and the time is saved with it."),
+      h("div", { class: "actions" }, saveBtn,
+        h("button", { class: "btn secondary", type: "button", onclick: closePanel }, "Cancel")),
+      status,
+    );
+    panel.hidden = false;
+    category.focus();
+  }
+
+  async function saveHighlight(item, btn, status) {
+    const s = state.settings;
+    btn.disabled = true;
+    status.className = "status";
+    status.textContent = "Taking a screenshot…";
+    if (highlight && highlight.block && highlight.block.scrollIntoView) {
+      highlight.block.scrollIntoView({ block: "center", behavior: "instant" });
+    }
+    root.classList.add("capturing");               // hide the pop-up; the yellow highlight stays in the picture
+    if (highlight) highlight.draw();
+    position();
+    await frame();
+    await sleep(150);
+    const res = await send({ type: "saveEvidence", report: {
+      source: "highlight",
+      matched_text: item.text,
+      context_text: item.context,
+      category: item.category,
+      reporter_note: item.note,
+      url: location.href,
+      platform: kalasagPlatformOf(location.hostname),
+      reporter_role: s.role,
+      country: s.country,
+    } });
+    root.classList.remove("capturing");
+    if (res.ok && res.saved) {
+      status.className = "status ok";
+      status.replaceChildren("Sent for expert review. It will count in reports once an expert approves it.", h("br"),
+        res.report.screenshot_sha256 ? h("span", { class: "hash" }, `Fingerprint ${res.report.screenshot_sha256.slice(0, 24)}…`) : "");
+      btn.textContent = "Saved";
+    } else if (res.ok && res.queued) {
+      btn.disabled = false;
+      status.className = "status err";
+      status.textContent = "The Kalasag website isn't reachable, so this was kept on your computer. Send it later from the toolbar button.";
+    } else {
+      btn.disabled = false;
+      status.className = "status err";
+      status.textContent = res.error || "Couldn't save.";
+    }
+  }
+
   // ------------------------------------------------ status for the toolbar pop-up
   chrome.runtime.onMessage.addListener((msg, sender, reply) => {
     if (msg.type === "tab:state") {
       reply({ status: state.status, active: state.active, flags: state.flags.length, checked: state.checked,
               waiting: state.queue.length + state.inFlight * BATCH_SIZE, lastError: state.lastError,
               aiOff: state.aiOff, host: location.hostname });
+    } else if (msg.type === "highlight:report") {
+      openHighlightPanel(msg.text);
+      reply({ ok: true });
     } else if (msg.type === "tab:rescan") {
       rescan().then(() => reply({ ok: true }));
       return true;

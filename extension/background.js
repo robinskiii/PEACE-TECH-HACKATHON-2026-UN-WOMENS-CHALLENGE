@@ -2,11 +2,25 @@
 // the AI endpoint (with key fallback), the Kalasag website, and screenshots.
 importScripts("shared.js");
 
+// Right-click on selected text: "Report to Kalasag"
+function createMenu() {
+  chrome.contextMenus.removeAll(() => chrome.contextMenus.create({
+    id: "kalasag-report", title: "Report to Kalasag", contexts: ["selection"],
+  }));
+}
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== "kalasag-report" || !tab || tab.id < 0) return;
+  chrome.tabs.sendMessage(tab.id, { type: "highlight:report", text: info.selectionText || "" }, () => {
+    if (chrome.runtime.lastError) console.warn("Page not ready for reporting:", chrome.runtime.lastError.message);
+  });
+});
+
 chrome.runtime.onInstalled.addListener(async (details) => {
+  createMenu();
   await refreshLexicon().catch((e) => console.warn("Word list not loaded:", e.message));
   if (details.reason === "install") chrome.runtime.openOptionsPage();
 });
-chrome.runtime.onStartup.addListener(() => refreshLexicon().catch(() => {}));
+chrome.runtime.onStartup.addListener(() => { createMenu(); refreshLexicon().catch(() => {}); });
 
 async function refreshLexicon() {
   const s = await kalasagSettings();
@@ -26,6 +40,51 @@ async function postReport(s, report) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Website replied ${res.status}`);
   return data;
+}
+
+// Add a strip under the screenshot with the page address and the time, so the picture
+// carries its own source even when it is shared on its own.
+async function stampScreenshot(dataUrl, pageUrl) {
+  try {
+    const img = await createImageBitmap(await (await fetch(dataUrl)).blob());
+    const scale = Math.max(1, img.width / 1400);
+    const bar = Math.round(52 * scale), pad = Math.round(16 * scale);
+    const canvas = new OffscreenCanvas(img.width, img.height + bar);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    ctx.fillStyle = "#2E2A38";
+    ctx.fillRect(0, img.height, img.width, bar);
+    ctx.fillStyle = "#FF9CC2";
+    ctx.fillRect(0, img.height, img.width, Math.max(2, Math.round(3 * scale)));
+    ctx.textBaseline = "middle";
+    const y = img.height + bar / 2 + scale;
+    ctx.font = `bold ${Math.round(17 * scale)}px system-ui, sans-serif`;
+    ctx.fillStyle = "#FFD84D";
+    const label = "Kalasag evidence";
+    ctx.fillText(label, pad, y);
+    const when = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+    ctx.font = `${Math.round(15 * scale)}px system-ui, sans-serif`;
+    ctx.fillStyle = "#FBF6EE";
+    const whenW = ctx.measureText(when).width;
+    ctx.fillText(when, img.width - pad - whenW, y);
+    ctx.font = `bold ${Math.round(17 * scale)}px system-ui, sans-serif`;
+    const start = pad + ctx.measureText(label).width + pad * 1.5;
+    ctx.font = `${Math.round(15 * scale)}px system-ui, sans-serif`;
+    let text = pageUrl || "";
+    const room = img.width - pad * 3 - whenW - start;
+    while (text.length > 10 && ctx.measureText(text).width > room) text = text.slice(0, -2);
+    if (text !== pageUrl) text = text.slice(0, -1) + "…";
+    ctx.fillStyle = "#8FD3F4";
+    ctx.fillText(text, start, y);
+    const blob = await canvas.convertToBlob({ type: "image/png" });
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return "data:image/png;base64," + btoa(bin);
+  } catch (e) {
+    console.warn("Couldn't add the address strip, keeping the plain screenshot:", e.message);
+    return dataUrl;
+  }
 }
 
 async function setAIStatus(status) {
@@ -67,6 +126,7 @@ const handlers = {
     let shot = null;
     try {
       shot = await chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" });
+      shot = await stampScreenshot(shot, msg.report.url || sender.tab.url);
     } catch (e) {
       console.warn("Screenshot failed:", e.message);
     }
