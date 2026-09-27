@@ -67,6 +67,7 @@ BROAD_OF = {
     "unclassified": "unclassified",
 }
 SEVERITIES = ["low", "medium", "high"]
+REPORT_SOURCES = ("word_list", "ai", "highlight")
 LANGUAGES = {"tl": "Tagalog", "ceb": "Cebuano", "ilo": "Ilocano", "en": "English"}
 
 LEGAL_INFO = {
@@ -413,7 +414,7 @@ def check_spike(leader_id):
 
 def api_status(q, body):
     return 200, {"ai_enabled": bool(API_KEY), "model": MODEL if API_KEY else None,
-                 "database": STORE.kind,
+                 "database": STORE.kind, "reports_pending": STORE.reports_pending_count(),
                  "categories": CATEGORIES, "broad_categories": BROAD_LABELS, "broad_of": BROAD_OF,
                  "languages": LANGUAGES, "severities": SEVERITIES}
 
@@ -483,6 +484,10 @@ def api_reports_create(q, body):
     if category not in CATEGORIES:
         category = "unclassified"
     leader_id = body.get("leader_id") or find_leader(body.get("context_text"), body.get("matched_text"))
+    # Word-list matches were already checked by experts when the word was approved, so they count at once.
+    # Text a person highlighted, and AI-only finds, wait for an expert.
+    source = body.get("source") if body.get("source") in REPORT_SOURCES else ("word_list" if body.get("lexicon_id") else "highlight")
+    status = "approved" if source == "word_list" else "pending"
     shot_file = shot_hash = None
     if body.get("screenshot_b64"):
         shot_file, shot_hash = save_b64_file(body["screenshot_b64"], "report", "screenshot.png")
@@ -491,15 +496,40 @@ def api_reports_create(q, body):
         "lexicon_id": body.get("lexicon_id"), "matched_text": body.get("matched_text"),
         "context_text": (body.get("context_text") or "")[:2000], "category": category,
         "reporter_role": body.get("reporter_role"), "country": (body.get("country") or "PH").upper(),
-        "leader_id": leader_id, "screenshot_file": shot_file, "screenshot_sha256": shot_hash})
-    alert = check_spike(leader_id) if leader_id else None
-    return 201, {"id": saved["id"], "created_at": saved["created_at"], "leader_id": leader_id,
+        "leader_id": leader_id, "screenshot_file": shot_file, "screenshot_sha256": shot_hash,
+        "source": source, "status": status, "reporter_note": (body.get("reporter_note") or "")[:1000] or None})
+    alert = check_spike(leader_id) if leader_id and status == "approved" else None
+    return 201, {"id": saved["id"], "created_at": saved["created_at"], "leader_id": leader_id, "status": status,
                  "screenshot_sha256": shot_hash, "alert_triggered": alert}
 
 
 def api_reports_list(q, body):
     limit = min(int(q.get("limit", 100)), 500)
-    return 200, [with_broad(r) for r in STORE.reports_list(limit)]
+    status = q.get("status", "approved")
+    if status not in ("pending", "approved", "rejected"):
+        raise ValueError("status must be pending, approved or rejected.")
+    return 200, [with_broad(r) for r in STORE.reports_list(limit, status=status)]
+
+
+def api_report_review(q, body, report_id, decision):
+    """An expert approves a waiting report (it then counts everywhere) or rejects it."""
+    require(body, "reviewer")
+    report = STORE.report_get(report_id)
+    if not report:
+        return 404, {"error": "Report not found."}
+    if report["status"] != "pending":
+        raise ValueError(f"This report was already {report['status']}.")
+    fields = {"status": "approved" if decision == "approve" else "rejected",
+              "reviewed_by": body["reviewer"].strip()[:200], "reviewed_at": iso(now_utc())}
+    if decision == "approve":
+        if body.get("category") in CATEGORIES:
+            fields["category"] = body["category"]
+        if "leader_id" in body:
+            fields["leader_id"] = int(body["leader_id"]) if body.get("leader_id") else None
+    STORE.report_update(report_id, fields)
+    leader_id = fields.get("leader_id", report.get("leader_id"))
+    alert = check_spike(leader_id) if decision == "approve" and leader_id else None
+    return 200, {"id": int(report_id), "status": fields["status"], "alert_triggered": alert}
 
 
 def api_leaders_list(q, body):
@@ -686,6 +716,7 @@ ROUTES = [
     ("POST", r"/api/submissions/(\d+)/(approve|reject)", api_submission_review),
     ("GET", r"/api/reports", api_reports_list),
     ("POST", r"/api/reports", api_reports_create),
+    ("POST", r"/api/reports/(\d+)/(approve|reject)", api_report_review),
     ("GET", r"/api/leaders", api_leaders_list),
     ("POST", r"/api/leaders", api_leaders_create),
     ("GET", r"/api/alerts", api_alerts_list),

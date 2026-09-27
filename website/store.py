@@ -141,24 +141,35 @@ class SupabaseStore:
         return self._insert("reports", row)
 
     def reports_count(self, leader_id, since, until=None):
-        filters = {"leader_id": f"eq.{int(leader_id)}", "created_at": f"gte.{since}"}
+        filters = {"leader_id": f"eq.{int(leader_id)}", "created_at": f"gte.{since}", "status": "eq.approved"}
         if until:
             filters["and"] = f"(created_at.lt.{until})"
         return self._count("reports", **filters)
 
     def reports_for_leader(self, leader_id, since, limit=40):
         return self._select("reports", select="platform,category,context_text,matched_text",
-                            leader_id=f"eq.{int(leader_id)}", created_at=f"gte.{since}",
+                            leader_id=f"eq.{int(leader_id)}", created_at=f"gte.{since}", status="eq.approved",
                             order="created_at.desc", limit=str(limit))
 
-    def reports_list(self, limit=100):
-        rows = self._select("reports", select="*,leaders(name),lexicon(term)",
+    def reports_list(self, limit=100, status="approved"):
+        rows = self._select("reports", select="*,leaders(name),lexicon(term)", status=f"eq.{status}",
                             order="created_at.desc", limit=str(limit))
         return [_flatten(r) for r in rows]
 
+    def reports_pending_count(self):
+        return self._count("reports", status="eq.pending")
+
+    def report_get(self, report_id):
+        rows = self._select("reports", select="*", id=f"eq.{int(report_id)}")
+        return rows[0] if rows else None
+
+    def report_update(self, report_id, fields):
+        rows = self._update("reports", {"id": f"eq.{int(report_id)}"}, fields)
+        return rows[0] if rows else None
+
     def reports_since(self, since):
         rows = self._select("reports", select="id,created_at,platform,category,leader_id,leaders(name)",
-                            created_at=f"gte.{since}", order="created_at.asc", limit="10000")
+                            created_at=f"gte.{since}", status="eq.approved", order="created_at.asc", limit="10000")
         return [_flatten(r) for r in rows]
 
     # ---------- alerts
@@ -256,7 +267,9 @@ CREATE TABLE IF NOT EXISTS reports (
     matched_text TEXT, context_text TEXT, category TEXT,
     reporter_role TEXT, country TEXT,
     leader_id INTEGER REFERENCES leaders(id),
-    screenshot_file TEXT, screenshot_sha256 TEXT
+    screenshot_file TEXT, screenshot_sha256 TEXT,
+    source TEXT NOT NULL DEFAULT 'word_list', status TEXT NOT NULL DEFAULT 'approved',
+    reporter_note TEXT, reviewed_by TEXT, reviewed_at TEXT
 );
 CREATE TABLE IF NOT EXISTS alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -285,6 +298,12 @@ class SQLiteStore:
         os.makedirs(evidence_dir, exist_ok=True)
         with self._conn() as conn:
             conn.executescript(SQLITE_SCHEMA)
+            # Older local files: add the review columns if they're missing.
+            have = {r["name"] for r in conn.execute("PRAGMA table_info(reports)")}
+            for col, ddl in [("source", "TEXT NOT NULL DEFAULT 'word_list'"), ("status", "TEXT NOT NULL DEFAULT 'approved'"),
+                             ("reporter_note", "TEXT"), ("reviewed_by", "TEXT"), ("reviewed_at", "TEXT")]:
+                if col not in have:
+                    conn.execute(f"ALTER TABLE reports ADD COLUMN {col} {ddl}")
 
     def _conn(self):
         conn = sqlite3.connect(self.db_path, timeout=10)
@@ -377,7 +396,8 @@ class SQLiteStore:
         return {"id": new_id, "created_at": row["created_at"]}
 
     def reports_count(self, leader_id, since, until=None):
-        sql, args = "SELECT COUNT(*) AS n FROM reports WHERE leader_id=? AND created_at>=?", [int(leader_id), since]
+        sql, args = ("SELECT COUNT(*) AS n FROM reports WHERE status='approved' AND leader_id=? AND created_at>=?",
+                     [int(leader_id), since])
         if until:
             sql += " AND created_at<?"
             args.append(until)
@@ -385,18 +405,30 @@ class SQLiteStore:
 
     def reports_for_leader(self, leader_id, since, limit=40):
         return self._all("SELECT platform, category, context_text, matched_text FROM reports"
-                         " WHERE leader_id=? AND created_at>=? ORDER BY created_at DESC LIMIT ?",
+                         " WHERE status='approved' AND leader_id=? AND created_at>=? ORDER BY created_at DESC LIMIT ?",
                          (int(leader_id), since, limit))
 
-    def reports_list(self, limit=100):
+    def reports_list(self, limit=100, status="approved"):
         return self._all("SELECT r.*, l.name AS leader_name, x.term AS term FROM reports r"
                          " LEFT JOIN leaders l ON l.id=r.leader_id LEFT JOIN lexicon x ON x.id=r.lexicon_id"
-                         " ORDER BY r.created_at DESC LIMIT ?", (limit,))
+                         " WHERE r.status=? ORDER BY r.created_at DESC LIMIT ?", (status, limit))
+
+    def reports_pending_count(self):
+        return self._one("SELECT COUNT(*) AS n FROM reports WHERE status='pending'")["n"]
+
+    def report_get(self, report_id):
+        return self._one("SELECT * FROM reports WHERE id=?", (int(report_id),))
+
+    def report_update(self, report_id, fields):
+        with self._conn() as conn:
+            conn.execute(f"UPDATE reports SET {', '.join(f'{k}=?' for k in fields)} WHERE id=?",
+                         [*fields.values(), int(report_id)])
+        return self.report_get(report_id)
 
     def reports_since(self, since):
         return self._all("SELECT r.id, r.created_at, r.platform, r.category, r.leader_id, l.name AS leader_name"
                          " FROM reports r LEFT JOIN leaders l ON l.id=r.leader_id"
-                         " WHERE r.created_at>=? ORDER BY r.created_at", (since,))
+                         " WHERE r.status='approved' AND r.created_at>=? ORDER BY r.created_at", (since,))
 
     # ---------- alerts
     def alert_exists_since(self, leader_id, since):

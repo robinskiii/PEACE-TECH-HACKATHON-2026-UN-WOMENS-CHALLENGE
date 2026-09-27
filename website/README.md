@@ -128,6 +128,14 @@ A screenshot can be taken in the extension's background script with `chrome.tabs
 | POST | /api/demo/inject | Add fake reports: `leader_id, count` |
 | POST | /api/demo/reset | Remove demo reports and all alerts |
 
+## Expert review of reports
+
+- Reports that matched a word from the verified word list count straight away.
+- Text someone highlighted with **Report to Kalasag**, and posts only the AI found, arrive as **pending**. They appear under **Waiting for review** on the Reports tab, with the screenshot, the reporter's note and a link to the original page.
+- An expert can correct the category and the leader, then **Approve** (it counts in Trends, alerts and the reports list) or **Reject**.
+- Endpoints: `GET /api/reports?status=pending` and `POST /api/reports/{id}/approve` or `/reject` with `{"reviewer": "...", "category": "...", "leader_id": 1}`.
+- Supabase tables created before this feature need `database/migration_002_report_review.sql` run once in the SQL Editor.
+
 ## Spike rule
 
 An alert fires when a leader has at least 5 reports in the last 24 hours and at least 3 times her average daily count over the previous 7 days. At most one alert per leader every 6 hours. Change `SPIKE_MIN`, `SPIKE_MULTIPLIER` and `ALERT_COOLDOWN_HOURS` at the top of `app.py`.
