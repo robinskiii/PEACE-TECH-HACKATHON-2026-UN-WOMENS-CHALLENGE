@@ -5,34 +5,55 @@ Runs on plain Python 3.9+, nothing to install.
 ## Run it
 
 ```bash
-cd kalasag
+cd website
 python app.py
 ```
 
 Then open:
 
-- http://localhost:8000 for the partner dashboard (word database, alerts, reports, incidents)
-- http://localhost:8000/test-feed for a fake social feed to test the extension on
+- http://localhost:8000 for the partner dashboard (trends, word database, alerts, reports, incidents)
+- http://localhost:8000/test-feed and http://localhost:8000/test-article to test the extension on
 
-To turn on AI drafting of word entries and AI alert summaries, set your key first:
+## Where the data is stored
 
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."      # macOS / Linux
-set ANTHROPIC_API_KEY=sk-ant-...           # Windows cmd
-$env:ANTHROPIC_API_KEY="sk-ant-..."        # Windows PowerShell
-```
+| Setup | Data lives in | Who sees it |
+|---|---|---|
+| `website/.env` has the Supabase keys | Supabase (online) | Everyone on the team, from any computer |
+| No `.env` | `website/kalasag.db` (a local file) | Only this computer |
 
-Without a key everything still works; drafts are just filled in by hand.
+**To use Supabase:**
+1. The first time only, run `../database/schema.sql` in Supabase (**SQL Editor → New query → Run**).
+2. Copy `.env.example` to `.env` in this folder and paste the **secret** key from **Project Settings → API Keys**.
+3. Run `python app.py`. The terminal should say `Database: Supabase (shared, online)`.
 
-To start over with fresh demo data, stop the server and delete `kalasag.db` and the `evidence/` folder.
+The first start adds the demo data (fictional leaders, Tagalog and English words, two quiet weeks of reports).
+
+`.env` is git-ignored. Never commit it and never share the secret key in chat.
+
+**AI (optional):** add `ANTHROPIC_API_KEY` to `.env` to turn on AI drafting of new words and AI alert summaries. Without it, everything still works and drafts are filled in by hand.
+
+**Start over with fresh demo data:** local file: stop the server, delete `kalasag.db` and `evidence/`. Supabase: run `schema.sql` again, then restart.
+
+## Categories
+
+Every report has a detailed category (what the extension and the word list use) and a broad category from the team's guide:
+
+| Broad category | Detailed categories |
+|---|---|
+| Gender hate speech | Sexualized slur, "Too emotional to lead", "Belongs at home", Appearance, Demeaning women as a group, Threat |
+| Gendered disinformation | "Puppet" or incompetence, Fabricated scandal |
+| Manipulated text or context | Found by the AI check (e.g. fabricated quotes) |
+
+Change the mapping in `BROAD_OF` at the top of `app.py`.
 
 ## Demo script
 
-1. Word database: suggest a new term, show the AI draft, edit it, approve it. It now appears in the JSON feed.
-2. Open the test feed with the extension on. Flagged posts get highlighted; fair criticism does not.
-3. Click "Save as evidence" in the extension. The report appears on the Reports tab with its fingerprint.
-4. Leaders and alerts: click "Simulate a spike". The alert appears with a summary.
-5. Incidents: record an incident with a photo or voice note.
+1. Trends: the dashboard opens here. Show reports per day, the rising narratives and the leaders table.
+2. Word database: suggest a new term, show the AI draft, edit it, approve it. It now appears in the JSON feed.
+3. Open the test feed with the extension on. Flagged posts get highlighted; fair criticism does not.
+4. Click "Save as evidence" in the extension. The report appears on the Reports tab with its fingerprint.
+5. Leaders and alerts: click "Simulate a spike". The alert appears with a summary.
+6. Incidents: record an incident with a photo or voice note.
 
 ## API for the extension
 
@@ -93,6 +114,7 @@ A screenshot can be taken in the extension's background script with `chrome.tabs
 
 | Method | Path | What it does |
 |---|---|---|
+| GET | /api/stats?days=14 | Numbers for the Trends page: reports per day per leader, narratives, broad categories, platforms, leaders |
 | GET | /api/status | Whether AI is on; category, language and severity lists |
 | GET | /api/submissions?status=pending | Review queue (also `approved`, `rejected`) |
 | POST | /api/submissions | Suggest a term: `term, language, country, explanation, submitted_by` |
