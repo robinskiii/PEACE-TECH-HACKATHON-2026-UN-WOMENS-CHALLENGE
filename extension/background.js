@@ -28,6 +28,15 @@ async function postReport(s, report) {
   return data;
 }
 
+async function postSubmission(s, submission) {
+  const res = await fetch(`${s.serverUrl.replace(/\/+$/, "")}/api/submissions`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(submission),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Website replied ${res.status}`);
+  return data;
+}
+
 async function setAIStatus(status) {
   await chrome.storage.local.set({ aiStatus: { ...status, at: Date.now() } });
 }
@@ -80,6 +89,16 @@ const handlers = {
       await chrome.storage.local.set({ pending });
       return { saved: false, queued: true, error: e.message };
     }
+  },
+
+  // A user can nominate text the detector did not flag. It goes into the same
+  // human-review queue as community submissions, never directly into the list.
+  async submitSelection(msg) {
+    const s = await kalasagSettings();
+    return { submission: await postSubmission(s, {
+      ...msg.submission, country: s.country,
+      language: msg.submission.language || (s.languages || ["tl"])[0],
+    }) };
   },
 
   async retryPending() {

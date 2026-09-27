@@ -231,6 +231,14 @@
     .btn:disabled { opacity: .55; cursor: wait; }
     .status { font-size: 13px; margin-top: 10px; } .status.ok { color: #17665E; } .status.err { color: #A33A2F; }
     .hash { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #4A5572; word-break: break-all; }
+    .selection-action { position: fixed; display: none; pointer-events: auto; z-index: 2; border: 0; border-radius: 999px;
+      padding: 8px 12px; background: #17665E; color: #fff; font: 700 13px system-ui, sans-serif; cursor: pointer;
+      box-shadow: 0 4px 14px rgba(20,26,43,.25); }
+    .selection-action.show { display: block; }
+    .submit-box { margin-top: 12px; padding-top: 12px; border-top: 1px solid #D8DCE4; }
+    .submit-box textarea, .submit-box input, .submit-box select { width: 100%; margin-top: 4px; box-sizing: border-box;
+      font: 13px system-ui, sans-serif; border: 1px solid #D8DCE4; border-radius: 6px; padding: 7px; }
+    .submit-box label { display: block; margin-top: 8px; font-size: 12px; font-weight: 700; }
     @media (prefers-color-scheme: dark) {
       .root { color: #E8EBF3; } .panel { background: #1C2438; } .x, .muted, blockquote, .hash { color: #A7AFC4; }
       .chip { background: #2A3350; } .chip.high { background: #3B1F1C; color: #EC8B80; } .chip.medium { background: #3A2F16; }
@@ -238,11 +246,13 @@
       .btn { border-color: #E8EBF3; } .btn.primary { background: #E8EBF3; color: #1C2438; }
       .btn.secondary { background: transparent; color: #E8EBF3; border-color: #2E3850; }
     }
-  </style><div class="root"><div class="boxes"></div><aside class="panel" hidden role="dialog" aria-label="Kalasag"></aside></div>`;
+  </style><div class="root"><div class="boxes"></div><button class="selection-action" type="button">Add to Kalasag</button><aside class="panel" hidden role="dialog" aria-label="Kalasag"></aside></div>`;
   const root = shadow.querySelector(".root");
   const boxesEl = shadow.querySelector(".boxes");
   const panel = shadow.querySelector(".panel");
+  const selectionAction = shadow.querySelector(".selection-action");
   let openFlag = null;
+  let selectedText = "", selectedContext = "";
 
   function h(tag, attrs = {}, ...children) {
     const el = document.createElement(tag);
@@ -257,6 +267,59 @@
 
   function mountOverlay() {
     if (!host.isConnected) document.documentElement.appendChild(host);
+  }
+
+  // Text that has not triggered a detection can still teach the community
+  // lexicon. A selection is always sent as a *pending* reviewer submission.
+  function selectionChanged() {
+    if (!state.active || openFlag) return;
+    const sel = document.getSelection();
+    const text = (sel && sel.toString() || "").replace(/\s+/g, " ").trim();
+    if (text.length < 2 || text.length > 500 || !sel.rangeCount) {
+      selectionAction.classList.remove("show"); return;
+    }
+    const range = sel.getRangeAt(0), rect = range.getBoundingClientRect();
+    if (!rect.width && !rect.height) return;
+    selectedText = text;
+    const parent = sel.anchorNode && (sel.anchorNode.nodeType === Node.ELEMENT_NODE ? sel.anchorNode : sel.anchorNode.parentElement);
+    selectedContext = parent ? textOf(blockFor(parent.firstChild || parent) || parent).slice(0, 1200) : text;
+    selectionAction.style.left = `${Math.max(8, Math.min(innerWidth - 150, rect.left))}px`;
+    selectionAction.style.top = `${Math.max(8, rect.bottom + 8)}px`;
+    selectionAction.classList.add("show"); mountOverlay();
+  }
+  document.addEventListener("selectionchange", selectionChanged);
+  selectionAction.addEventListener("mousedown", (e) => e.preventDefault());
+  selectionAction.addEventListener("click", () => openSubmission());
+
+  function openSubmission() {
+    if (!selectedText) return;
+    selectionAction.classList.remove("show");
+    const s = state.settings;
+    const status = h("p", { class: "status", role: "status" });
+    const term = h("input", { value: selectedText.slice(0, 180), maxlength: "180" });
+    const note = h("textarea", { placeholder: "Why might this be harmful or misleading? Add any context that would help a reviewer." });
+    const language = h("select", {},
+      ...(s.languages || ["tl", "en"]).map((code) => h("option", { value: code }, ({ tl: "Tagalog", en: "English", ceb: "Cebuano", ilo: "Ilocano" }[code] || code))));
+    const submit = h("button", { class: "btn primary", type: "button" }, "Send for validation");
+    submit.addEventListener("click", async () => {
+      if (!term.value.trim() || !note.value.trim()) { status.className = "status err"; status.textContent = "Add a short note for the reviewer."; return; }
+      submit.disabled = true; status.className = "status"; status.textContent = "Sending to the review queue…";
+      const res = await send({ type: "submitSelection", submission: {
+        term: term.value.trim(), language: language.value, explanation: note.value.trim(),
+        selected_text: selectedText, source_url: location.href, source_title: document.title, context_text: selectedContext,
+        submitted_by: "browser extension user",
+      } });
+      submit.disabled = false;
+      if (res.ok) { status.className = "status ok"; status.textContent = "Sent for human validation. It will not flag pages unless a reviewer approves it."; submit.disabled = true; }
+      else { status.className = "status err"; status.textContent = res.error || "Could not reach the Kalasag website."; }
+    });
+    panel.replaceChildren(h("div", { class: "stripe" }), h("div", { class: "head" },
+      h("h2", {}, "Add a possible harmful phrase"), h("button", { class: "x", type: "button", "aria-label": "Close", onclick: closePanel }, "×")),
+      h("p", { class: "muted" }, "This was not automatically flagged. Your submission stays in the review queue until a partner validates it."),
+      h("blockquote", {}, selectedText), h("div", { class: "submit-box" },
+        h("label", {}, "Word or phrase"), term, h("label", {}, "Language"), language,
+        h("label", {}, "Why should it be reviewed?"), note, h("div", { class: "actions" }, submit), status));
+    panel.hidden = false; panel.querySelector(".x").focus();
   }
 
   function addFlag(item, info) {
