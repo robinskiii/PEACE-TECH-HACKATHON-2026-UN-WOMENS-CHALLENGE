@@ -93,7 +93,10 @@
     state.settings = settings;
     state.matchers = kalasagBuildMatchers(lexicon);
     state.aiOff = !(settings.sharedKey || "").trim() && !(settings.teamKey || "").trim();
-    state.active = settings.enabled && !kalasagIsExcluded(location.hostname, settings.excludedSites);
+    // Pages can opt out with <meta name="kalasag" content="skip">, e.g. the Kalasag dashboard itself,
+    // which shows the harmful words on purpose.
+    const optedOut = !!document.querySelector('meta[name="kalasag"][content="skip"]');
+    state.active = settings.enabled && !optedOut && !kalasagIsExcluded(location.hostname, settings.excludedSites);
     state.status = !settings.enabled ? "off" : !state.active ? "paused" : state.status;
   }
 
