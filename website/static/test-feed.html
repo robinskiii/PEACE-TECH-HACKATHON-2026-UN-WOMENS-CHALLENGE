@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balitaan · test feed</title>
+<style>
+:root { --bg: #EEF0F3; --card: #fff; --ink: #1d2230; --soft: #667085; --rule: #dde1e7; --accent: #2F5D9E; }
+@media (prefers-color-scheme: dark) { :root { --bg: #15181f; --card: #1f232d; --ink: #e8eaf0; --soft: #9aa3b5; --rule: #2d3240; --accent: #7fa7e0; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { background: var(--card); border-bottom: 1px solid var(--rule); padding: 12px 20px; position: sticky; top: 0; }
+header strong { color: var(--accent); font-size: 20px; }
+.notice { max-width: 620px; margin: 16px auto 0; padding: 10px 14px; border: 1px dashed var(--soft); border-radius: 8px; color: var(--soft); font-size: 13px; }
+.feed { max-width: 620px; margin: 16px auto 60px; display: grid; gap: 12px; padding: 0 12px; }
+.post { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px; }
+.who { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; }
+.name { font-weight: 600; }
+.meta { font-size: 12px; color: var(--soft); }
+.post p { margin: 0 0 10px; }
+.actions { display: flex; gap: 18px; font-size: 13px; color: var(--soft); border-top: 1px solid var(--rule); padding-top: 8px; }
+.fake-link { color: var(--accent); text-decoration: underline; }
+</style>
+</head>
+<body>
+<header><strong>Balitaan</strong> <span class="meta">local news and community feed</span></header>
+<p class="notice">Test page for the Kalasag extension. Every account, leader and post here is fictional. Some posts should be flagged and some should not (fair criticism and neutral news must stay unflagged).</p>
+
+<main class="feed">
+  <article class="post" data-expect="no-flag">
+    <div class="who"><div class="avatar" style="background:#3b7d5b">K</div><div><div class="name">Kape at Balita</div><div class="meta">2h · Iloilo City</div></div></div>
+    <p>Mayor Liza Reyes's drainage budget still hasn't reached Barangay 12. Where did the money go? We want a public audit before the rainy season.</p>
+    <div class="actions"><span>214 reactions</span><span>58 comments</span><span>31 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: emotional_unfitness (variant)">
+    <div class="who"><div class="avatar" style="background:#8a4b9a">T</div><div><div class="name">truthseeker_ph88</div><div class="meta">3h</div></div></div>
+    <p>Si Mayor Reyes na naman umiyak sa session. 1yak1n talaga, paano ka mamumuno ng buong lungsod?</p>
+    <div class="actions"><span>1.2K reactions</span><span>403 comments</span><span>220 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: fabricated_scandal">
+    <div class="who"><div class="avatar" style="background:#b5452f">B</div><div><div class="name">Balita Ngayon 24/7</div><div class="meta">4h</div></div></div>
+    <p>LEAKED VIDEO ni Sen. Carmen Dela Cruz 🔥 panoorin bago ma-delete: <span class="fake-link">bit.ly/xxxxxx</span></p>
+    <div class="actions"><span>3.4K reactions</span><span>1.1K comments</span><span>2.8K shares</span></div>
+  </article>
+
+  <article class="post" data-expect="no-flag">
+    <div class="who"><div class="avatar" style="background:#2f6f8f">N</div><div><div class="name">Nurse Jen</div><div class="meta">5h</div></div></div>
+    <p>Sen. Dela Cruz's maternal health bill passed committee today. Big win for rural clinics, but funding for midwives is still too low. Let's keep pushing.</p>
+    <div class="actions"><span>892 reactions</span><span>74 comments</span><span>150 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: family_role">
+    <div class="who"><div class="avatar" style="background:#6b6f2a">R</div><div><div class="name">Tito Ramon</div><div class="meta">6h</div></div></div>
+    <p>Dela Cruz should be home with her kids instead of running a Senate committee. Some jobs are for men.</p>
+    <div class="actions"><span>540 reactions</span><span>312 comments</span><span>44 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: competence_undermining">
+    <div class="who"><div class="avatar" style="background:#9a6a1e">M</div><div><div class="name">makabayan_2028</div><div class="meta">7h</div></div></div>
+    <p>Puppet lang ng asawa si Mayor Reyes, siya talaga ang nagdedesisyon sa city hall.</p>
+    <div class="actions"><span>77 reactions</span><span>19 comments</span><span>8 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="no-flag">
+    <div class="who"><div class="avatar" style="background:#44608a">C</div><div><div class="name">CivicWatch PH</div><div class="meta">8h</div></div></div>
+    <p>Fact-check: the photo going around of Mayor Reyes at a casino is from 2019 and shows a different person. Please don't share it.</p>
+    <div class="actions"><span>1.9K reactions</span><span>88 comments</span><span>1.3K shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: family_role (Tagalog)">
+    <div class="who"><div class="avatar" style="background:#7d3b3b">J</div><div><div class="name">anon_juan</div><div class="meta">9h</div></div></div>
+    <p>Bumalik ka na sa kusina, Liza. Hindi ka para sa politika.</p>
+    <div class="actions"><span>61 reactions</span><span>27 comments</span><span>3 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: competence_undermining (new guide word)">
+    <div class="who"><div class="avatar" style="background:#5b4b8a">L</div><div><div class="name">lutang_watch</div><div class="meta">12h</div></div></div>
+    <p>Lutang na naman si Sen. Dela Cruz sa hearing kanina. Madumb talaga, walang alam sa budget.</p>
+    <div class="actions"><span>640 reactions</span><span>201 comments</span><span>97 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: fabricated_scandal, high (red-tagging)">
+    <div class="who"><div class="avatar" style="background:#8a3b5b">P</div><div><div class="name">Patriot Updates</div><div class="meta">13h</div></div></div>
+    <p>Alam niyo ba? Si Mayor Reyes ay terorista at komunista, kaya pala ganyan ang mga proyekto niya. I-share bago i-delete!</p>
+    <div class="actions"><span>2.2K reactions</span><span>640 comments</span><span>1.9K shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: competence_undermining (new guide word)">
+    <div class="who"><div class="avatar" style="background:#3b6e8a">D</div><div><div class="name">dagupan_dad</div><div class="meta">14h</div></div></div>
+    <p>Hawak sa leeg ng mga adviser niya si Mayor Reyes. Wala siyang sariling desisyon.</p>
+    <div class="actions"><span>88 reactions</span><span>30 comments</span><span>5 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="flag: sexualized_slur (placeholder, variant)">
+    <div class="who"><div class="avatar" style="background:#555">X</div><div><div class="name">xx_realtalk_xx</div><div class="meta">10h</div></div></div>
+    <p>Look at this z3lvira trying to run a city 🤡</p>
+    <div class="actions"><span>33 reactions</span><span>12 comments</span><span>2 shares</span></div>
+  </article>
+
+  <article class="post" data-expect="ambiguous: everyday use, should NOT flag">
+    <div class="who"><div class="avatar" style="background:#3d8a80">A</div><div><div class="name">Ate Marites</div><div class="meta">11h</div></div></div>
+    <p>Ang anak ko sobrang iyakin ngayong umaga, walang tulog 😅 kape muna.</p>
+    <div class="actions"><span>45 reactions</span><span>9 comments</span></div>
+  </article>
+</main>
+</body>
+</html>

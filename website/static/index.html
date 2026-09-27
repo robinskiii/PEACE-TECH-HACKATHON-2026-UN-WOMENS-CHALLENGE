@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="kalasag" content="skip"><!-- the extension skips this page: it shows the words on purpose -->
+<title>Kalasag · partner dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Kalasag look: chalkboard lettering, pink / yellow / light blue.
+   Chalkboard SE is built into Macs; Patrick Hand (Google Fonts) is the look-alike everywhere else. */
+:root {
+  --chalk: "Chalkboard SE", "Chalkboard", "Patrick Hand", "Comic Neue", cursive;
+  --font: "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --ink: #3A1F3D; --ink-soft: #6E5470; --paper: #FFF7FA; --surface: #FFFFFF; --rule: #F2D7E3;
+  --pink: #D63F7C; --pink-deep: #B02A63; --pink-soft: #FDE3EE;
+  --yellow: #FFD84D; --yellow-deep: #8A6300; --yellow-soft: #FFF4C7;
+  --blue: #8FD3F4; --blue-deep: #1D6FA3; --blue-soft: #E2F4FD;
+  --teal: #13795B; --teal-soft: #DDF3EA; --red: #B3261E; --red-soft: #FBE3E0;
+  --board: #2E2A38; --board-ink: #FBF6EE;
+  --shadow: 0 6px 18px rgba(176, 42, 99, .08), 0 1px 3px rgba(58, 31, 61, .06);
+
+  /* chart colors: validated categorical order (pink, blue, yellow first) */
+  --series-1: #d6407f; --series-2: #2a78d6; --series-3: #c98500;
+  --series-4: #4a3aa7; --series-5: #eb6834; --series-6: #1baf7a;
+  --grid: #F4E3EB; --bar: #d6407f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #FBEFF5; --ink-soft: #CDB6C8; --paper: #1B1320; --surface: #271C2D; --rule: #3F2D45;
+    --pink: #FF7AAE; --pink-deep: #FF9CC2; --pink-soft: #4A2238;
+    --yellow: #FFD84D; --yellow-deep: #FFD84D; --yellow-soft: #3E3413;
+    --blue: #8FD3F4; --blue-deep: #8FD3F4; --blue-soft: #16364A;
+    --teal: #6FD3A5; --teal-soft: #15352A; --red: #FF8A80; --red-soft: #45201E;
+    --board: #120E15; --shadow: 0 6px 18px rgba(0, 0, 0, .35);
+    --series-1: #e0508e; --series-2: #3987e5; --series-3: #c98500;
+    --series-4: #9085e9; --series-5: #d95926; --series-6: #199e70;
+    --grid: #3A2A40; --bar: #e0508e;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--font); color: var(--ink); background: var(--paper); font-size: 15px; line-height: 1.55; }
+a { color: var(--blue-deep); }
+:focus-visible { outline: 3px solid var(--blue-deep); outline-offset: 2px; }
+
+/* soft floating color blobs behind everything */
+.blobs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.blobs i { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .7; animation: float 18s ease-in-out infinite alternate; }
+.blobs i:nth-child(1) { width: 380px; height: 380px; background: var(--pink-soft); top: -80px; right: 8%; }
+.blobs i:nth-child(2) { width: 320px; height: 320px; background: var(--yellow-soft); bottom: 6%; left: 22%; animation-delay: -6s; }
+.blobs i:nth-child(3) { width: 300px; height: 300px; background: var(--blue-soft); top: 38%; right: -60px; animation-delay: -12s; }
+@keyframes float { to { transform: translate(40px, 30px) scale(1.08); } }
+
+.shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
+.shell > * { min-width: 0; }
+
+/* the side rail is a little chalkboard */
+.rail { background: var(--board); color: var(--board-ink); padding: 26px 18px; position: sticky; top: 0; height: 100vh;
+  background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px); background-size: 6px 6px;
+  border-right: 6px solid #C58B5B; }
+@media (prefers-color-scheme: dark) { .rail { border-right-color: #6E4B30; } }
+.brand { display: flex; align-items: center; gap: 10px; margin: 0 0 2px; font-family: var(--chalk); font-size: 30px; line-height: 1; }
+.brand .she { color: #FF9CC2; } .brand .shield { color: var(--yellow); }
+.logo { width: 38px; height: 42px; flex: none; transform-origin: 50% 90%; animation: wobble 3.2s ease-in-out 1s 2; }
+.brand:hover .logo { animation: wobble 1s ease-in-out; }
+@keyframes wobble { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 60% { transform: rotate(6deg); } }
+.brand-sub { font-family: var(--chalk); font-size: 16px; color: var(--blue); margin: 6px 0 22px; }
+.weave { height: 8px; margin: 0 0 22px; border-radius: 4px;
+  background: repeating-linear-gradient(90deg, #FF9CC2 0 14px, transparent 14px 18px, var(--yellow) 18px 32px, transparent 32px 36px, var(--blue) 36px 50px, transparent 50px 54px);
+  background-size: 54px 8px; animation: slide 6s linear infinite; }
+@keyframes slide { to { background-position: 54px 0; } }
+.nav button { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; color: var(--board-ink);
+  font-family: var(--chalk); font-size: 19px; padding: 8px 12px; border-radius: 10px; cursor: pointer; opacity: .8;
+  transition: transform .2s, background .2s, opacity .2s; }
+.nav button:hover { opacity: 1; background: rgba(255,255,255,.07); transform: translateX(3px); }
+.nav button[aria-current="page"] { opacity: 1; background: rgba(255, 156, 194, .16); }
+.nav .ico { width: 1.2em; text-align: center; }
+.nav .count { margin-left: auto; background: var(--yellow); color: #3A1F3D; border-radius: 10px; padding: 0 8px; font: 700 12px var(--font); }
+.ai-state { margin-top: 26px; font-size: 13px; opacity: .85; }
+.ai-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #8a7f93; }
+.ai-dot.on { background: #6FD3A5; box-shadow: 0 0 0 0 rgba(111,211,165,.6); animation: ping 2.4s infinite; }
+@keyframes ping { 70% { box-shadow: 0 0 0 7px rgba(111,211,165,0); } 100% { box-shadow: 0 0 0 0 rgba(111,211,165,0); } }
+
+main { padding: 32px clamp(18px, 4vw, 48px) 64px; max-width: 1120px; }
+main > section:not([hidden]) { animation: rise .45s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+h1 { font-family: var(--chalk); font-weight: 400; font-size: 42px; line-height: 1.1; margin: 0 0 6px; }
+h1::after { content: ""; display: block; width: 120px; height: 10px; margin-top: 4px;
+  background: no-repeat left/100% 100% url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10'%3E%3Cpath d='M2 6 Q 15 1 30 6 T 60 6 T 90 6 T 118 5' fill='none' stroke='%23FFD84D' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.lede { color: var(--ink-soft); margin: 0 0 26px; max-width: 64ch; }
+h2 { font-family: var(--chalk); font-weight: 400; font-size: 26px; margin: 36px 0 12px; }
+h2:first-of-type { margin-top: 0; }
+.panel { background: var(--surface); border: 2px solid var(--rule); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); }
+section[hidden] { display: none; }
+
+label { display: block; font-weight: 700; font-size: 13px; margin: 0 0 4px; }
+.hint { font-weight: 400; color: var(--ink-soft); }
+input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--surface);
+  border: 2px solid var(--rule); border-radius: 12px; padding: 8px 12px; transition: border-color .2s, box-shadow .2s; }
+input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); outline: none; }
+textarea { min-height: 76px; resize: vertical; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.field { margin-bottom: 14px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn { font-family: var(--chalk); font-size: 17px; border-radius: 999px; padding: 6px 20px; cursor: pointer;
+  border: 2px solid var(--pink-deep); background: var(--pink-deep); color: #fff; box-shadow: 0 3px 0 rgba(58,31,61,.18);
+  transition: transform .15s, box-shadow .15s; }
+@media (prefers-color-scheme: dark) { .btn { color: #2A1020; } }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(58,31,61,.18); }
+.btn:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(58,31,61,.18); }
+.btn.quiet { background: var(--surface); color: var(--ink); border-color: var(--rule); }
+.btn.approve { background: var(--teal); border-color: var(--teal); color: #fff; }
+@media (prefers-color-scheme: dark) { .btn.approve { color: #0E2A1F; } }
+.btn.reject { background: transparent; color: var(--red); border-color: var(--red); }
+.btn:disabled { opacity: .5; cursor: wait; transform: none; }
+.msg { font-size: 14px; margin-top: 10px; }
+.msg.ok { color: var(--teal); } .msg.err { color: var(--red); }
+
+.queue { display: grid; gap: 14px; }
+.card { background: var(--surface); border: 2px solid var(--rule); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); }
+.card-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+.term { font-family: var(--chalk); font-size: 24px; }
+.tag { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--blue-soft); color: var(--ink); white-space: nowrap; }
+.tag.ai { background: var(--teal-soft); color: var(--teal); }
+.tag.high { background: var(--red-soft); color: var(--red); }
+.tag.medium { background: var(--yellow-soft); color: var(--yellow-deep); }
+.tag.low { background: var(--blue-soft); }
+.quote { border-left: 4px solid var(--pink-soft); padding: 2px 0 2px 12px; color: var(--ink-soft); margin: 0 0 16px; font-size: 14px; }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 2px solid var(--rule); border-radius: 18px; box-shadow: var(--shadow); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--chalk); font-weight: 400; font-size: 16px; white-space: nowrap; color: var(--ink); background: var(--pink-soft); }
+tbody tr { transition: background .15s; }
+tbody tr:hover { background: var(--paper); }
+tr:last-child td { border-bottom: 0; }
+.excerpt { max-width: 34ch; }
+.hash { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; color: var(--ink-soft); }
+.empty { color: var(--ink-soft); padding: 18px; }
+
+/* The one loud element: a spike alert */
+.alert { position: relative; background: var(--yellow-soft); border: 2px solid var(--yellow);
+  border-radius: 18px; padding: 18px 18px 18px 30px; margin-bottom: 12px; overflow: hidden; box-shadow: var(--shadow); }
+.alert::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 10px;
+  background: repeating-linear-gradient(135deg, var(--yellow) 0 8px, var(--pink) 8px 14px); }
+.alert.seen { opacity: .6; }
+.alert-title { font-family: var(--chalk); font-size: 22px; margin: 0 0 4px; }
+.alert-meta { font-size: 13px; color: var(--ink-soft); margin-bottom: 8px; }
+.alert.new { animation: arrive .6s cubic-bezier(.2,1.4,.4,1); }
+@keyframes arrive { from { transform: translateY(-10px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.review { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; }
+.review .shot { display: block; align-self: start; border-radius: 12px; overflow: hidden; border: 2px solid var(--rule); background: var(--paper); }
+.review .shot img { display: block; width: 100%; height: 170px; object-fit: cover; object-position: top; }
+.review .shot span { display: block; font-size: 12px; padding: 4px 8px; color: var(--ink-soft); }
+.review .said { font-size: 17px; font-weight: 700; margin: 0 0 6px; }
+.note { background: var(--blue-soft); border-radius: 12px; padding: 8px 12px; font-size: 14px; margin: 0 0 12px; }
+.src { font-size: 12px; color: var(--ink-soft); }
+@media (max-width: 760px) { .review { grid-template-columns: 1fr; } }
+.leader { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; }
+.leader-count { text-align: right; }
+.leader-count strong { font-family: var(--chalk); font-weight: 400; font-size: 34px; display: block; line-height: 1; color: var(--pink-deep); }
+.leader-count span { font-size: 12px; color: var(--ink-soft); }
+.small { font-size: 13px; color: var(--ink-soft); }
+
+/* ---------- Trends */
+.filters { display: flex; gap: 10px; align-items: center; margin: 0 0 18px; flex-wrap: wrap; }
+.filters select { width: auto; }
+.tiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 18px; }
+.tile { position: relative; background: var(--surface); border: 2px solid var(--rule); border-radius: 18px; padding: 16px 18px 14px;
+  box-shadow: var(--shadow); overflow: hidden; animation: pop .5s cubic-bezier(.2,1.3,.4,1) both; transition: transform .2s; }
+.tile:hover { transform: translateY(-3px) rotate(-.4deg); }
+.tile::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: var(--accent, var(--pink)); }
+.tile:nth-child(1) { --accent: var(--pink); animation-delay: .05s; }
+.tile:nth-child(2) { --accent: var(--blue); animation-delay: .12s; }
+.tile:nth-child(3) { --accent: var(--yellow); animation-delay: .19s; }
+.tile:nth-child(4) { --accent: var(--pink); animation-delay: .26s; }
+@keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+.tile-label { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 0 0 2px; }
+.tile-value { font-family: var(--chalk); font-size: 44px; line-height: 1.05; margin: 0; font-variant-numeric: tabular-nums; }
+.tile-delta { font-size: 13px; color: var(--ink-soft); margin: 4px 0 0; }
+.tile-delta.up { color: var(--red); } .tile-delta.down { color: var(--teal); }
+.tile.hot { border-color: var(--yellow); background: var(--yellow-soft); --accent: repeating-linear-gradient(90deg, var(--yellow) 0 12px, var(--pink) 12px 20px); }
+.tile.hot .tile-value { animation: throb 1.8s ease-in-out infinite; transform-origin: left center; }
+@keyframes throb { 50% { transform: scale(1.06); } }
+.chart-card { background: var(--surface); border: 2px solid var(--rule); border-radius: 18px; padding: 18px 20px 14px; margin-bottom: 18px;
+  position: relative; box-shadow: var(--shadow); animation: pop .55s ease-out .2s both; }
+.chart-card h3 { font-family: var(--chalk); font-weight: 400; font-size: 22px; margin: 0; }
+.chart-card .sub { font-size: 13px; color: var(--ink-soft); margin: 0 0 12px; }
+.chart-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.chart-grid .chart-card { margin-bottom: 0; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-soft); margin: 0 0 8px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 16px; height: 3px; border-radius: 2px; }
+svg.chart { display: block; width: 100%; overflow: visible; }
+svg.chart text { fill: var(--ink-soft); font: 12px var(--font); }
+svg.chart .end-label { fill: var(--ink); font-weight: 700; }
+svg.chart .grid { stroke: var(--grid); stroke-width: 1; }
+svg.chart:focus-visible { outline: 3px solid var(--blue-deep); outline-offset: 4px; }
+svg.chart .line.draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.4s ease-out forwards; }
+svg.chart .dot.draw { opacity: 0; animation: fadein .3s ease-out 1.3s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes fadein { to { opacity: 1; } }
+.hbars { display: grid; gap: 10px; }
+.hbar { display: grid; grid-template-columns: minmax(120px, 42%) 1fr; gap: 10px; align-items: center; font-size: 13px; cursor: default; }
+.hbar-label { color: var(--ink); line-height: 1.3; }
+.hbar-label .hbar-change { display: block; font-size: 12px; }
+.hbar-track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.hbar-fill { height: 16px; background: var(--bar); border-radius: 0 8px 8px 0; min-width: 2px; flex: none; transform-origin: left center; transition: filter .15s; }
+.hbar-fill.grow { animation: grow .8s cubic-bezier(.2,1,.3,1) both; animation-delay: calc(var(--i, 0) * 70ms + .15s); }
+@keyframes grow { from { transform: scaleX(0); } }
+.hbar:hover .hbar-fill, .hbar:focus .hbar-fill { filter: brightness(1.12); }
+.hbar-value { color: var(--ink); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hbar-change { color: var(--ink-soft); font-weight: 400; }
+#t-broad { --bar: var(--series-2); }
+#t-platforms { --bar: var(--series-3); }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 2px solid var(--rule);
+  border-radius: 12px; padding: 8px 12px; font-size: 13px; box-shadow: 0 8px 22px rgba(58,31,61,.16); z-index: 5; min-width: 150px; }
+.tip-date { font-family: var(--chalk); font-size: 15px; color: var(--ink); margin-bottom: 4px; }
+.tip-row { display: flex; align-items: center; gap: 8px; }
+.tip-row i { width: 12px; height: 3px; border-radius: 2px; flex: none; }
+.tip-row strong { min-width: 2ch; }
+.status-spike { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; padding: 2px 10px;
+  border-radius: 999px; background: var(--yellow); color: #3A1F3D; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(214,63,124,.45); } 50% { box-shadow: 0 0 0 6px rgba(214,63,124,0); } }
+.status-normal { font-size: 12px; color: var(--ink-soft); }
+details.table-view { margin-top: 8px; font-size: 13px; }
+details.table-view summary { cursor: pointer; color: var(--ink-soft); }
+details.table-view .table-wrap { margin-top: 8px; max-height: 260px; overflow: auto; box-shadow: none; }
+.db-badge { font-size: 12px; color: var(--ink-soft); display: inline-flex; align-items: center; gap: 6px; }
+.db-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--teal); }
+
+/* nothing moves for people who ask their computer for less motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  svg.chart .line.draw { stroke-dashoffset: 0; } svg.chart .dot.draw { opacity: 1; }
+}
+
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: static; height: auto; padding: 16px; border-right: 0; border-bottom: 6px solid #C58B5B; }
+  .brand-sub, .weave { display: none; }
+  .nav { display: flex; overflow-x: auto; gap: 4px; }
+  .nav button { white-space: nowrap; width: auto; font-size: 17px; }
+  .nav button:hover { transform: none; }
+  .ai-state { margin-top: 10px; }
+  h1 { font-size: 34px; }
+}
+</style>
+</head>
+<body>
+<div class="blobs" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="shell">
+  <aside class="rail">
+    <p class="brand"><svg class="logo" viewBox="0 0 38 42" aria-hidden="true"><path d="M19 2 L35 8 V20 C35 30 27 37 19 40 C11 37 3 30 3 20 V8 Z" fill="#FF7AAE" stroke="#FFD84D" stroke-width="2.5" stroke-linejoin="round"/><path d="M19 29 C13 24 10.5 21 10.5 17.5 C10.5 15 12.4 13.2 14.8 13.2 C16.6 13.2 18.1 14.3 19 15.8 C19.9 14.3 21.4 13.2 23.2 13.2 C25.6 13.2 27.5 15 27.5 17.5 C27.5 21 25 24 19 29 Z" fill="#FFF7FA"/><circle cx="31" cy="5" r="1.6" fill="#8FD3F4"/><circle cx="6" cy="4" r="1.2" fill="#8FD3F4"/></svg><span class="she">Kalasag</span></p>
+    <p class="brand-sub">Partner dashboard · Philippines pilot</p>
+    <div class="weave" aria-hidden="true"></div>
+    <nav class="nav" aria-label="Sections">
+      <button data-tab="trends" aria-current="page"><span class="ico" aria-hidden="true">📈</span>Trends</button>
+      <button data-tab="words"><span class="ico" aria-hidden="true">📖</span>Word database <span class="count" id="pending-count" hidden></span></button>
+      <button data-tab="alerts"><span class="ico" aria-hidden="true">🔔</span>Leaders and alerts <span class="count" id="alert-count" hidden></span></button>
+      <button data-tab="reports"><span class="ico" aria-hidden="true">🗂️</span>Reports <span class="count" id="review-count" hidden></span></button>
+      <button data-tab="incidents"><span class="ico" aria-hidden="true">📝</span>Incidents</button>
+    </nav>
+    <p class="ai-state"><span class="ai-dot" id="ai-dot"></span><span id="ai-text">Checking AI…</span></p>
+  </aside>
+
+  <main>
+    <!-- TRENDS -->
+    <section id="tab-trends">
+      <h1>Trends</h1>
+      <p class="lede">What is being said about women leaders in the Philippines, where, and whether it is rising. Built from every report saved with the extension.</p>
+      <div class="filters">
+        <label for="t-days" style="margin:0">Period</label>
+        <select id="t-days"><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option></select>
+        <button class="btn quiet" id="t-refresh" type="button">Refresh</button>
+        <span class="db-badge" id="t-db"></span>
+      </div>
+      <div class="tiles" id="t-tiles"></div>
+
+      <div class="chart-card">
+        <h3>Reports per day, by leader</h3>
+        <p class="sub">A sudden climb is an early warning. Hover for exact numbers.</p>
+        <div class="legend" id="t-legend"></div>
+        <div id="t-line"></div>
+        <details class="table-view"><summary>Show as a table</summary><div class="table-wrap" id="t-line-table"></div></details>
+      </div>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h3>Narratives this week</h3>
+          <p class="sub">Most reported attack types, compared with the week before.</p>
+          <div class="hbars" id="t-narratives"></div>
+        </div>
+        <div class="chart-card">
+          <h3>Type of attack</h3>
+          <p class="sub">The guide's broad categories, in the selected period.</p>
+          <div class="hbars" id="t-broad"></div>
+          <h3 style="margin-top:22px">Where it happens</h3>
+          <p class="sub">Platform the report came from.</p>
+          <div class="hbars" id="t-platforms"></div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:28px">Leaders</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Leader</th><th>Last 24 hours</th><th>Usual per day</th><th>This week</th><th>Main narrative</th><th>Next event</th><th>Status</th></tr></thead>
+        <tbody id="t-leaders"></tbody></table></div>
+    </section>
+
+    <!-- WORD DATABASE -->
+    <section id="tab-words" hidden>
+      <h1>Word database</h1>
+      <p class="lede">Communities suggest terms used to attack women leaders. A verified partner checks each one before the browser extension starts flagging it.</p>
+
+      <h2>Suggest a word</h2>
+      <form class="panel" id="suggest-form">
+        <div class="grid">
+          <div class="field"><label for="s-term">Word or phrase</label><input id="s-term" required></div>
+          <div class="field"><label for="s-lang">Language</label><select id="s-lang"></select></div>
+          <div class="field"><label for="s-country">Country</label>
+            <select id="s-country"><option value="PH">Philippines</option><option value="AU">Australia</option></select></div>
+        </div>
+        <div class="field"><label for="s-expl">What does it mean, and how is it used? <span class="hint">Your own words are fine.</span></label>
+          <textarea id="s-expl" required></textarea></div>
+        <div class="field"><label for="s-who">Your organization <span class="hint">optional</span></label><input id="s-who"></div>
+        <button class="btn" type="submit">Send for review</button>
+        <p class="msg" id="suggest-msg" role="status"></p>
+      </form>
+
+      <h2>Waiting for review</h2>
+      <div class="field" style="max-width:320px"><label for="reviewer">Reviewing as</label>
+        <input id="reviewer" placeholder="Your name and organization" value="Demo reviewer, UN Women PH"></div>
+      <div class="queue" id="queue"></div>
+
+      <h2>Live in the extension</h2>
+      <p class="small">This is what the extension downloads: <a href="/api/lexicon?country=PH" target="_blank">view the JSON feed</a>.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Term</th><th>Language</th><th>Category</th><th>Severity</th><th>Spelling variants</th></tr></thead>
+        <tbody id="lexicon-body"></tbody></table></div>
+    </section>
+
+    <!-- ALERTS -->
+    <section id="tab-alerts" hidden>
+      <h1>Leaders and alerts</h1>
+      <p class="lede">Leaders who opt in are alerted when reports about them spike well above their usual level, ideally before an event rather than after it.</p>
+      <div id="alerts-list"></div>
+
+      <h2>Registered leaders</h2>
+      <div class="queue" id="leaders-list"></div>
+      <p class="small" style="margin-top:12px">Demo tools: "Simulate a spike" adds 12 fake reports from the last hour. <button class="btn quiet" id="reset-demo" type="button">Reset demo reports and alerts</button></p>
+
+      <h2>Register a leader</h2>
+      <form class="panel" id="leader-form">
+        <div class="grid">
+          <div class="field"><label for="l-name">Full name and title</label><input id="l-name" required></div>
+          <div class="field"><label for="l-variants">Other names used online <span class="hint">comma-separated</span></label><input id="l-variants" placeholder="Nicknames, surname only…"></div>
+          <div class="field"><label for="l-org">Supporting organization</label><input id="l-org"></div>
+          <div class="field"><label for="l-contact">Alert contact</label><input id="l-contact" type="email"></div>
+        </div>
+        <div class="grid">
+          <div class="field"><label for="l-event">Upcoming event <span class="hint">optional</span></label><input id="l-event"></div>
+          <div class="field"><label for="l-date">Event date</label><input id="l-date" type="date"></div>
+          <div class="field"><label for="l-loc">Location</label><input id="l-loc"></div>
+        </div>
+        <button class="btn" type="submit">Register leader</button>
+        <p class="msg" id="leader-msg" role="status"></p>
+      </form>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="tab-reports" hidden>
+      <h1>Reports</h1>
+      <p class="lede">Everything saved as evidence from the browser extension. Screenshots carry the page address and time, and are fingerprinted (SHA-256) when they arrive, so any later change to the file can be detected.</p>
+      <div class="row" style="margin-bottom:12px"><button class="btn quiet" id="refresh-reports" type="button">Refresh</button></div>
+
+      <h2>Waiting for review</h2>
+      <p class="small" style="margin:-4px 0 12px;max-width:70ch">Text people highlighted themselves, and posts only the AI found. They count in Trends, alerts and the list below only after an expert approves them.</p>
+      <div class="field" style="max-width:320px"><label for="r-reviewer">Reviewing as</label>
+        <input id="r-reviewer" placeholder="Your name and organization" value="Demo reviewer, UN Women PH"></div>
+      <div class="queue" id="review-queue"></div>
+
+      <h2>Approved reports</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Received</th><th>About</th><th>Category</th><th>Platform</th><th>Content</th><th>Evidence</th></tr></thead>
+        <tbody id="reports-body"></tbody></table></div>
+    </section>
+
+    <!-- INCIDENTS -->
+    <section id="tab-incidents" hidden>
+      <h1>Incidents</h1>
+      <p class="lede">A private record of what happened, before or after an event. Every file is timestamped and fingerprinted so it can be used as evidence later.</p>
+      <form class="panel" id="incident-form">
+        <div class="grid">
+          <div class="field"><label for="i-leader">Leader</label><select id="i-leader"></select></div>
+          <div class="field"><label for="i-when">When it happened</label><input id="i-when" type="datetime-local"></div>
+        </div>
+        <div class="field"><label for="i-desc">What happened</label><textarea id="i-desc" required></textarea></div>
+        <div class="field"><label for="i-wit">Witnesses <span class="hint">names or contact details</span></label><input id="i-wit"></div>
+        <div class="field"><label for="i-files">Photos, screenshots or voice notes</label><input id="i-files" type="file" multiple accept="image/*,audio/*,application/pdf"></div>
+        <button class="btn" type="submit">Save incident</button>
+        <p class="msg" id="incident-msg" role="status"></p>
+      </form>
+      <h2>Saved incidents</h2>
+      <div class="queue" id="incidents-list"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const state = { categories: {}, languages: {}, severities: [], leaders: [], seenAlertIds: new Set() };
+
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const when = (iso) => iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+
+async function api(path, options = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body) });
+function say(el, text, ok = true) { el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); }
+
+// ---------- tabs
+document.querySelectorAll(".nav button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+function showTab(name) {
+  document.querySelectorAll(".nav button").forEach((b) => {
+    if (b.dataset.tab === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+  document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
+  ({ trends: loadTrends, words: loadWords, alerts: loadAlerts, reports: loadReports, incidents: loadIncidents })[name]();
+}
+
+// ---------- status
+async function loadStatus() {
+  const s = await api("/api/status");
+  Object.assign(state, { categories: s.categories, languages: s.languages, severities: s.severities });
+  $("#ai-dot").classList.toggle("on", s.ai_enabled);
+  $("#ai-text").textContent = s.ai_enabled ? "AI drafting on" : "AI drafting off (no key)";
+  const rc = $("#review-count"); rc.hidden = !s.reports_pending; rc.textContent = s.reports_pending || "";
+  $("#s-lang").innerHTML = Object.entries(s.languages).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join("");
+}
+const catOptions = (sel) => Object.entries(state.categories)
+  .map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(v)}</option>`).join("");
+const sevOptions = (sel) => state.severities.map((s) => `<option ${s === sel ? "selected" : ""}>${s}</option>`).join("");
+
+// ---------- words
+async function loadWords() {
+  const [pending, lex] = await Promise.all([api("/api/submissions?status=pending"), api("/api/lexicon")]);
+  const pc = $("#pending-count"); pc.hidden = !pending.length; pc.textContent = pending.length;
+
+  $("#queue").innerHTML = pending.length ? pending.map((e) => `
+    <article class="card" data-id="${e.id}">
+      <div class="card-head">
+        <span class="term">${esc(e.term)}</span>
+        <span class="row">
+          <span class="tag">${esc(state.languages[e.language] || e.language)} · ${esc(e.country)}</span>
+          <span class="tag ${e.ai_drafted ? "ai" : ""}">${e.ai_drafted ? "AI draft, please check" : "Manual draft"}</span>
+        </span>
+      </div>
+      <p class="quote">“${esc(e.raw_submission)}” <br><span class="small">Sent by ${esc(e.submitted_by || "anonymous")}, ${when(e.created_at)}</span></p>
+      <div class="field"><label>Meaning</label><textarea data-f="meaning">${esc(e.meaning)}</textarea></div>
+      <div class="grid">
+        <div class="field"><label>Category</label><select data-f="category">${catOptions(e.category)}</select></div>
+        <div class="field"><label>Severity</label><select data-f="severity">${sevOptions(e.severity)}</select></div>
+      </div>
+      <div class="field"><label>Spelling variants <span class="hint">comma-separated</span></label><input data-f="variants" value="${esc(e.variants.join(", "))}"></div>
+      <div class="field"><label>When is it harmful, and when is it neutral?</label><textarea data-f="context_note">${esc(e.context_note)}</textarea></div>
+      <div class="row">
+        <button class="btn approve" data-act="approve" type="button">Approve and publish</button>
+        <button class="btn reject" data-act="reject" type="button">Reject</button>
+      </div>
+      <p class="msg" role="status"></p>
+    </article>`).join("") : `<div class="panel empty">Nothing waiting. New suggestions appear here.</div>`;
+
+  $("#lexicon-body").innerHTML = lex.entries.length ? lex.entries.map((e) => `
+    <tr><td><strong>${esc(e.term)}</strong><div class="small">${esc(e.meaning)}</div></td>
+      <td>${esc(state.languages[e.language] || e.language)}</td>
+      <td>${esc(e.category_label)}</td>
+      <td><span class="tag ${esc(e.severity)}">${esc(e.severity)}</span></td>
+      <td class="small">${esc(e.variants.join(", "))}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">No approved words yet.</td></tr>`;
+}
+
+$("#queue").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-act]"); if (!btn) return;
+  const card = btn.closest(".card"), msg = card.querySelector(".msg");
+  const body = { reviewer: $("#reviewer").value.trim() };
+  card.querySelectorAll("[data-f]").forEach((el) => (body[el.dataset.f] = el.value));
+  if (!body.reviewer) return say(msg, "Add your name under 'Reviewing as' first.", false);
+  btn.disabled = true;
+  try {
+    await post(`/api/submissions/${card.dataset.id}/${btn.dataset.act}`, body);
+    await loadWords();
+  } catch (e) { say(msg, e.message, false); btn.disabled = false; }
+});
+
+$("#suggest-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = ev.submitter, msg = $("#suggest-msg");
+  btn.disabled = true; say(msg, "Sending… drafting the entry can take a few seconds.");
+  try {
+    const e = await post("/api/submissions", {
+      term: $("#s-term").value, language: $("#s-lang").value, country: $("#s-country").value,
+      explanation: $("#s-expl").value, submitted_by: $("#s-who").value || "anonymous" });
+    say(msg, e.ai_drafted ? "Sent. The AI drafted an entry; it's waiting for review below." : "Sent. It's waiting for review below.");
+    ev.target.reset(); await loadWords();
+  } catch (e) { say(msg, e.message, false); }
+  btn.disabled = false;
+});
+
+// ---------- leaders and alerts
+async function loadAlerts() {
+  const [alerts, leaders] = await Promise.all([api("/api/alerts"), api("/api/leaders")]);
+  state.leaders = leaders;
+  const unseen = alerts.filter((a) => !a.seen).length;
+  const ac = $("#alert-count"); ac.hidden = !unseen; ac.textContent = unseen;
+
+  $("#alerts-list").innerHTML = alerts.map((a) => {
+    const fresh = !a.seen && !state.seenAlertIds.has(a.id); state.seenAlertIds.add(a.id);
+    return `<div class="alert ${a.seen ? "seen" : ""} ${fresh ? "new" : ""}">
+      <p class="alert-title">Spike in reports about ${esc(a.leader_name)}</p>
+      <p class="alert-meta">${when(a.created_at)} · ${a.count_24h} reports in 24 hours, usually ${a.baseline_per_day} a day</p>
+      <p style="margin:0 0 12px">${esc(a.summary)}</p>
+      ${a.seen ? `<span class="small">Seen</span>` : `<button class="btn quiet" data-seen="${a.id}" type="button">Mark as seen</button>`}
+    </div>`; }).join("") || `<div class="panel empty">No alerts. When reports about a registered leader spike, an alert appears here and goes to her team.</div>`;
+
+  $("#leaders-list").innerHTML = leaders.map((l) => `
+    <article class="card leader">
+      <div>
+        <div class="term">${esc(l.name)}</div>
+        <div class="small">Also called: ${esc(l.name_variants.join(", ") || "none listed")}</div>
+        <div class="small">Supported by ${esc(l.organization || "no organization")} · alerts to ${esc(l.alert_contact || "not set")}</div>
+        ${l.events.map((e) => `<div style="margin-top:8px"><span class="tag">Upcoming</span> ${esc(e.name)}, ${esc(e.event_date || "date TBC")}${e.location ? ", " + esc(e.location) : ""}</div>`).join("")}
+        <button class="btn quiet" style="margin-top:12px" data-spike="${l.id}" type="button">Simulate a spike</button>
+      </div>
+      <div class="leader-count"><strong>${l.reports_24h}</strong><span>reports, last 24h</span></div>
+    </article>`).join("");
+}
+
+$("#alerts-list").addEventListener("click", async (ev) => {
+  const id = ev.target.dataset.seen; if (!id) return;
+  await post(`/api/alerts/${id}/seen`, {}); loadAlerts();
+});
+$("#leaders-list").addEventListener("click", async (ev) => {
+  const id = ev.target.dataset.spike; if (!id) return;
+  ev.target.disabled = true; ev.target.textContent = "Adding reports…";
+  try {
+    const r = await post("/api/demo/inject", { leader_id: Number(id), count: 12 });
+    if (!r.alert_triggered) ev.target.textContent = "Added. No new alert (one fired in the last 6 hours).";
+  } catch (e) { alert(e.message); }
+  loadAlerts();
+});
+$("#reset-demo").addEventListener("click", async () => { await post("/api/demo/reset", {}); state.seenAlertIds.clear(); loadAlerts(); });
+
+$("#leader-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  try {
+    await post("/api/leaders", { name: $("#l-name").value, name_variants: $("#l-variants").value,
+      organization: $("#l-org").value, alert_contact: $("#l-contact").value,
+      event_name: $("#l-event").value, event_date: $("#l-date").value, event_location: $("#l-loc").value });
+    say($("#leader-msg"), "Leader registered."); ev.target.reset(); loadAlerts();
+  } catch (e) { say($("#leader-msg"), e.message, false); }
+});
+
+// ---------- reports
+const SOURCE_LABEL = { word_list: "Matched the word list", ai: "Found by the AI check", highlight: "Highlighted by a person" };
+async function loadReviewQueue() {
+  if (!state.leaders.length) state.leaders = await api("/api/leaders");
+  const rows = await api("/api/reports?status=pending&limit=100");
+  const rc = $("#review-count"); rc.hidden = !rows.length; rc.textContent = rows.length;
+  const leaderOptions = (sel) => `<option value="">Not about a registered leader</option>` +
+    state.leaders.map((l) => `<option value="${l.id}" ${l.id === sel ? "selected" : ""}>${esc(l.name)}</option>`).join("");
+  $("#review-queue").innerHTML = rows.length ? rows.map((r) => `
+    <article class="card review" data-id="${r.id}">
+      <div>
+        <div class="card-head">
+          <span class="tag">${esc(SOURCE_LABEL[r.source] || r.source)}</span>
+          <span class="small">${when(r.created_at)} · ${esc(r.platform)} · reporter: ${esc(r.reporter_role || "not given")}</span>
+        </div>
+        <p class="said">“${esc(r.matched_text)}”</p>
+        ${r.context_text && r.context_text !== r.matched_text ? `<p class="quote">${esc(r.context_text.slice(0, 400))}</p>` : ""}
+        ${r.reporter_note ? `<p class="note"><strong>Reporter's note:</strong> ${esc(r.reporter_note)}</p>` : ""}
+        <div class="grid">
+          <div class="field"><label>Category</label><select data-f="category">${catOptions(r.category)}</select></div>
+          <div class="field"><label>About</label><select data-f="leader_id">${leaderOptions(r.leader_id)}</select></div>
+        </div>
+        <div class="row">
+          <button class="btn approve" data-act="approve" type="button">Approve, count it</button>
+          <button class="btn reject" data-act="reject" type="button">Reject</button>
+          ${r.url ? `<a class="src" href="${esc(r.url)}" target="_blank" rel="noopener">Open the original page</a>` : ""}
+        </div>
+        <p class="msg" role="status"></p>
+      </div>
+      ${r.screenshot_file ? `<a class="shot" href="/evidence/${esc(r.screenshot_file)}" target="_blank" title="Open the full screenshot">
+          <img src="/evidence/${esc(r.screenshot_file)}" alt="Screenshot of the reported page" loading="lazy">
+          <span class="hash">sha256 ${esc(r.screenshot_sha256.slice(0, 16))}…</span></a>`
+        : `<div class="small">No screenshot</div>`}
+    </article>`).join("") : `<div class="panel empty">Nothing waiting. Highlighted reports from the extension appear here.</div>`;
+}
+$("#review-queue").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-act]"); if (!btn) return;
+  const card = btn.closest(".card"), msg = card.querySelector(".msg");
+  const body = { reviewer: $("#r-reviewer").value.trim() };
+  if (!body.reviewer) return say(msg, "Add your name under 'Reviewing as' first.", false);
+  card.querySelectorAll("[data-f]").forEach((el) => (body[el.dataset.f] = el.value));
+  btn.disabled = true;
+  try {
+    const r = await post(`/api/reports/${card.dataset.id}/${btn.dataset.act}`, body);
+    if (r.alert_triggered) state.seenAlertIds.delete(r.alert_triggered.id);
+    await loadReports();
+  } catch (e) { say(msg, e.message, false); btn.disabled = false; }
+});
+
+async function loadReports() {
+  loadReviewQueue();
+  const rows = await api("/api/reports?limit=150");
+  $("#reports-body").innerHTML = rows.length ? rows.map((r) => `
+    <tr><td class="small">${when(r.created_at)}</td>
+      <td>${esc(r.leader_name || "Not matched")}</td>
+      <td>${esc(state.categories[r.category] || r.category)}${r.term ? `<div class="small">matched “${esc(r.term)}”</div>` : ""}
+        <div class="small">${esc(SOURCE_LABEL[r.source] || "")}${r.reviewed_by ? ` · approved by ${esc(r.reviewed_by)}` : ""}</div></td>
+      <td>${esc(r.platform)}</td>
+      <td class="excerpt">${esc(r.context_text || r.matched_text)}${r.url ? `<div class="small"><a href="${esc(r.url)}" target="_blank" rel="noopener">source link</a></div>` : ""}</td>
+      <td>${r.screenshot_file ? `<a href="/evidence/${esc(r.screenshot_file)}" target="_blank">screenshot</a><div class="hash" title="${esc(r.screenshot_sha256)}">${esc(r.screenshot_sha256.slice(0, 12))}…</div>` : `<span class="small">none</span>`}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">No reports yet. They arrive when someone clicks "Save as evidence" in the extension.</td></tr>`;
+}
+$("#refresh-reports").addEventListener("click", loadReports);
+
+// ---------- incidents
+async function loadIncidents() {
+  if (!state.leaders.length) state.leaders = await api("/api/leaders");
+  $("#i-leader").innerHTML = `<option value="">Not linked to a leader</option>` +
+    state.leaders.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join("");
+  const rows = await api("/api/incidents");
+  $("#incidents-list").innerHTML = rows.length ? rows.map((i) => `
+    <article class="card">
+      <div class="card-head"><strong>${esc(i.leader_name || "Not linked to a leader")}</strong>
+        <span class="small">Happened ${esc(i.occurred_at ? when(i.occurred_at) : "time not given")} · saved ${when(i.created_at)}</span></div>
+      <p style="margin:0 0 8px">${esc(i.description)}</p>
+      ${i.witnesses ? `<p class="small">Witnesses: ${esc(i.witnesses)}</p>` : ""}
+      ${i.files.map((f) => `<div class="small"><a href="/evidence/${esc(f.file)}" target="_blank">${esc(f.name)}</a> <span class="hash">sha256 ${esc(f.sha256.slice(0, 16))}…</span></div>`).join("")}
+    </article>`).join("") : `<div class="panel empty">No incidents recorded yet.</div>`;
+}
+
+const readFile = (file) => new Promise((ok, fail) => {
+  const r = new FileReader(); r.onload = () => ok({ name: file.name, data_b64: r.result }); r.onerror = fail; r.readAsDataURL(file);
+});
+$("#incident-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const btn = ev.submitter; btn.disabled = true;
+  try {
+    const files = await Promise.all([...$("#i-files").files].slice(0, 10).map(readFile));
+    const whenVal = $("#i-when").value;
+    const r = await post("/api/incidents", { leader_id: $("#i-leader").value ? Number($("#i-leader").value) : null,
+      occurred_at: whenVal ? new Date(whenVal).toISOString() : null,
+      description: $("#i-desc").value, witnesses: $("#i-wit").value, files });
+    say($("#incident-msg"), `Incident saved with ${r.files.length} file(s) fingerprinted.`);
+    ev.target.reset(); loadIncidents();
+  } catch (e) { say($("#incident-msg"), e.message, false); }
+  btn.disabled = false;
+});
+
+// ---------- trends
+const SERIES_VARS = ["--series-1", "--series-2", "--series-3", "--series-4", "--series-5", "--series-6"];
+const calm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let animate = true;  // false when only redrawing for a window resize
+const seriesColor = (i) => `var(${SERIES_VARS[i % SERIES_VARS.length]})`;
+const shortDate = (iso) => new Date(iso + "T00:00:00").toLocaleDateString([], { day: "numeric", month: "short" });
+const platformName = (p) => ({ facebook: "Facebook", x: "X (Twitter)", tiktok: "TikTok", youtube: "YouTube",
+  instagram: "Instagram", reddit: "Reddit", other: "Other sites" }[p] || p);
+
+async function loadTrends(anim = true) {
+  animate = !!anim && !calm();
+  const days = $("#t-days").value;
+  const s = await api(`/api/stats?days=${days}`);
+  $("#t-db").textContent = s.database === "supabase" ? "Live data from the shared database" : "Data from this computer only (local file)";
+  drawTiles(s.totals);
+  drawLineChart(s.days, s.series);
+  drawNarratives(s.narratives);
+  drawBars($("#t-broad"), s.broad.filter((b) => b.count || b.broad_category !== "unclassified")
+    .map((b) => ({ label: b.label, value: b.count })));
+  drawBars($("#t-platforms"), s.platforms.map((p) => ({ label: platformName(p.platform), value: p.count })));
+  drawLeaderTable(s.leaders);
+}
+$("#t-days").addEventListener("change", () => loadTrends());
+$("#t-refresh").addEventListener("click", () => loadTrends());
+
+function drawTiles(t) {
+  const diff = t.this_week - t.last_week;
+  const pct = t.last_week ? Math.round((diff / t.last_week) * 100) : null;
+  const delta = diff === 0 ? "Same as the week before"
+    : `${diff > 0 ? "+" : "−"}${Math.abs(diff)}${pct !== null ? ` (${diff > 0 ? "+" : "−"}${Math.abs(pct)}%)` : ""} vs the week before`;
+  const num = (v) => `<p class="tile-value" data-to="${v}">${animate ? 0 : v.toLocaleString()}</p>`;
+  $("#t-tiles").innerHTML = `
+    <div class="tile"><p class="tile-label">Reports this week</p>${num(t.this_week)}
+      <p class="tile-delta ${diff > 0 ? "up" : diff < 0 ? "down" : ""}">${esc(delta)}</p></div>
+    <div class="tile"><p class="tile-label">Reports in the last 24 hours</p>${num(t.last_24h)}</div>
+    <div class="tile"><p class="tile-label">Leaders targeted</p>${num(t.leaders_targeted)}
+      <p class="tile-delta">in the selected period</p></div>
+    <div class="tile ${t.open_alerts ? "hot" : ""}"><p class="tile-label">Open spike alerts</p>${num(t.open_alerts)}
+      <p class="tile-delta">${t.open_alerts ? "See Leaders and alerts" : "Nothing unusual right now"}</p></div>`;
+  if (!animate) $("#t-tiles").querySelectorAll(".tile").forEach((el) => (el.style.animation = "none"));
+  else countUp($("#t-tiles").querySelectorAll("[data-to]"));
+}
+function countUp(els) {
+  const start = performance.now(), dur = 900;
+  const step = (now) => {
+    const k = Math.min(1, (now - start) / dur), ease = 1 - Math.pow(1 - k, 3);
+    els.forEach((el) => (el.textContent = Math.round(Number(el.dataset.to) * ease).toLocaleString()));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function niceMax(v) {
+  if (v <= 4) return 4;
+  const step = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (m * step >= v) return m * step;
+  return 10 * step;
+}
+
+function drawLineChart(days, series) {
+  const host = $("#t-line");
+  const W = Math.max(host.clientWidth || 700, 320), H = 260;
+  const narrow = W < 560;
+  const m = { l: 34, r: narrow ? 16 : 150, t: 12, b: 28 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, n = days.length;
+  const max = niceMax(Math.max(1, ...series.flatMap((s) => s.counts)));
+  const x = (i) => m.l + (n === 1 ? iw / 2 : (i * iw) / (n - 1));
+  const y = (v) => m.t + ih - (v / max) * ih;
+  const ticks = [0, max / 4, max / 2, (3 * max) / 4, max].filter((v) => Number.isInteger(v));
+  const every = Math.ceil(n / (narrow ? 4 : 7));
+
+  $("#t-legend").innerHTML = series.map((s, i) =>
+    `<span><i style="background:${seriesColor(i)}"></i>${esc(s.name)}</span>`).join("");
+
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" height="${H}" role="img" tabindex="0"
+    aria-label="Reports per day by leader. Use left and right arrow keys to read each day.">`;
+  ticks.forEach((v) => {
+    svg += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/>`;
+    svg += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  });
+  days.forEach((d, i) => {
+    if ((i % every === 0 && n - 1 - i >= every / 2) || i === n - 1) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${esc(shortDate(d))}</text>`;
+  });
+  series.forEach((s, i) => {
+    const pts = s.counts.map((v, j) => `${x(j).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    svg += `<polyline class="line ${animate ? "draw" : ""}" pathLength="1" points="${pts}" fill="none" stroke="${seriesColor(i)}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" style="animation-delay:${i * 0.15}s"/>`;
+  });
+  // End dots and direct labels (skipped when they would overlap; the legend and tooltip still carry them)
+  const ends = series.map((s, i) => ({ i, v: s.counts[n - 1], yy: y(s.counts[n - 1]), name: s.name }));
+  const sorted = [...ends].sort((a, b) => a.yy - b.yy);
+  const clash = sorted.some((e, k) => k && e.yy - sorted[k - 1].yy < 16);
+  ends.forEach((e) => {
+    svg += `<circle class="dot ${animate ? "draw" : ""}" cx="${x(n - 1)}" cy="${e.yy}" r="4" fill="${seriesColor(e.i)}" stroke="var(--surface)" stroke-width="2"/>`;
+    if (!narrow && !clash) {
+      const label = e.name.length > 18 ? e.name.slice(0, 17) + "…" : e.name;
+      svg += `<text class="end-label dot ${animate ? "draw" : ""}" x="${x(n - 1) + 10}" y="${e.yy + 4}">${esc(label)} · ${e.v}</text>`;
+    }
+  });
+  svg += `<line id="t-cross" class="grid" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" style="stroke:var(--ink-soft);display:none"/>`;
+  svg += `<rect id="t-hit" x="${m.l - 10}" y="${m.t}" width="${iw + 20}" height="${ih}" fill="transparent"/>`;
+  svg += `</svg>`;
+  host.innerHTML = svg;
+
+  // Crosshair + tooltip (mouse and keyboard)
+  const card = host.closest(".chart-card");
+  let tip = card.querySelector(".tip");
+  if (!tip) { tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; card.append(tip); }
+  const svgEl = host.querySelector("svg"), cross = host.querySelector("#t-cross");
+  let current = n - 1;
+  const show = (i) => {
+    current = Math.max(0, Math.min(n - 1, i));
+    const px = x(current);
+    cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.style.display = "";
+    tip.innerHTML = "";
+    const date = document.createElement("div"); date.className = "tip-date";
+    date.textContent = new Date(days[current] + "T00:00:00").toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+    tip.append(date);
+    series.forEach((s, k) => {
+      const row = document.createElement("div"); row.className = "tip-row";
+      const key = document.createElement("i"); key.style.background = seriesColor(k);
+      const val = document.createElement("strong"); val.textContent = s.counts[current];
+      const name = document.createElement("span"); name.textContent = s.name;
+      row.append(key, val, name); tip.append(row);
+    });
+    tip.hidden = false;
+    const scale = svgEl.getBoundingClientRect().width / W;
+    const left = host.offsetLeft + px * scale;
+    tip.style.top = `${host.offsetTop + 8}px`;
+    tip.style.left = `${left + 12 + tip.offsetWidth > card.clientWidth ? left - tip.offsetWidth - 12 : left + 12}px`;
+  };
+  const hide = () => { tip.hidden = true; cross.style.display = "none"; };
+  host.querySelector("#t-hit").addEventListener("pointermove", (ev) => {
+    const r = svgEl.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    show(Math.round(((px - m.l) / iw) * (n - 1)));
+  });
+  host.querySelector("#t-hit").addEventListener("pointerleave", hide);
+  svgEl.addEventListener("focus", () => show(current));
+  svgEl.addEventListener("blur", hide);
+  svgEl.addEventListener("keydown", (ev) => {
+    if (ev.key === "ArrowLeft") { show(current - 1); ev.preventDefault(); }
+    if (ev.key === "ArrowRight") { show(current + 1); ev.preventDefault(); }
+  });
+
+  // Table view: every value reachable without hovering
+  $("#t-line-table").innerHTML = `<table><thead><tr><th>Day</th>${series.map((s) => `<th>${esc(s.name)}</th>`).join("")}</tr></thead>
+    <tbody>${days.map((d, i) => `<tr><td>${esc(shortDate(d))}</td>${series.map((s) => `<td>${s.counts[i]}</td>`).join("")}</tr>`).reverse().join("")}</tbody></table>`;
+}
+
+function drawBars(el, items, sub = () => "") {
+  if (!items.length || !items.some((it) => it.value)) {
+    el.innerHTML = `<p class="small" style="margin:0">No reports in this period.</p>`;
+    return;
+  }
+  const max = Math.max(...items.map((it) => it.value));
+  el.innerHTML = items.map((it, i) => `
+    <div class="hbar" tabindex="0" title="${esc(it.label)}: ${it.value}">
+      <span class="hbar-label">${esc(it.label)}${sub(it, i)}</span>
+      <span class="hbar-track"><span class="hbar-fill ${animate ? "grow" : ""}" style="--i:${i};width:${Math.max(1, (it.value / max) * 80)}%"></span>
+        <span class="hbar-value">${it.value}</span></span>
+    </div>`).join("");
+}
+
+function drawNarratives(list) {
+  const items = list.filter((n) => n.this_week || n.last_week).slice(0, 6)
+    .map((n) => ({ label: n.label, value: n.this_week, change: n.change }));
+  drawBars($("#t-narratives"), items, (it) => {
+    const c = it.change === 0 ? "same as last week" : `${it.change > 0 ? "+" : "−"}${Math.abs(it.change)} vs last week`;
+    return `<span class="hbar-change">${c}</span>`;
+  });
+}
+
+function drawLeaderTable(leaders) {
+  $("#t-leaders").innerHTML = leaders.length ? leaders.map((l) => {
+    const spike = l.last_24h >= 5 && l.last_24h >= 3 * Math.max(l.usual_per_day, 1);
+    const ev = l.next_event;
+    return `<tr>
+      <td><strong>${esc(l.name)}</strong></td>
+      <td>${l.last_24h}</td><td>${l.usual_per_day}</td><td>${l.this_week}</td>
+      <td>${esc(l.top_narrative || "–")}</td>
+      <td>${ev ? `${esc(ev.name)}<div class="small">${esc(ev.event_date || "")}</div>` : `<span class="small">None registered</span>`}</td>
+      <td>${spike ? `<span class="status-spike">▲ Spike</span>` : `<span class="status-normal">Normal</span>`}</td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty">No leaders registered yet.</td></tr>`;
+}
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (!$("#tab-trends").hidden) loadTrends(false); }, 250); });
+
+// ---------- start
+loadStatus().then(loadTrends).then(() => api("/api/submissions?status=pending")).then((p) => {
+  const pc = $("#pending-count"); pc.hidden = !p.length; pc.textContent = p.length;
+}).then(() => api("/api/alerts")).then((a) => {
+  const unseen = a.filter((x) => !x.seen).length; const ac = $("#alert-count"); ac.hidden = !unseen; ac.textContent = unseen;
+}).catch((e) => { document.querySelector("main").insertAdjacentHTML("afterbegin", `<p class="msg err">Can't reach the server: ${esc(e.message)}. Is app.py running?</p>`); });
+</script>
+</body>
+</html>
