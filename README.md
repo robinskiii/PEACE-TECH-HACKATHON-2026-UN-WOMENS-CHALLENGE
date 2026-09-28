@@ -18,7 +18,7 @@ Kalasag supports two connected experiences.
 
 ### 1. Browser extension: detect and report hate-speech on any website
 
-<img src="DEMO_IMAGES/EXTENSION_DEMO.png" alt="Browser extension Screenshot" width="1000">
+<img src="images/extension_image.png" alt="Browser extension Screenshot" width="1000">
 
 - Choose a country, the languages you read, and whether you are the target, an ally, or part of an organization. A targeted user can have flagged content blurred by default.
 - Browse normally. Kalasag checks text blocks such as posts, comments, and paragraphs. It recognizes verified local terms—including configured spelling variants—then uses an LLM to assess the surrounding context.
@@ -30,7 +30,7 @@ The extension does **not** submit a complaint to a platform, police, or other au
 
 ### 2. Kalasag website: turn individual reports into usable evidence
 
-<img src="DEMO_IMAGES/WEBSITE_DEMO.png" alt="Browser extension Screenshot" width="1000">
+<img src="images/website_image.png" alt="website image" width="1000">
 
 The website is the partner workspace behind the extension:
 
