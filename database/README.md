@@ -1,55 +1,93 @@
-# Database (Supabase)
+# Kalasag data layer
 
-The shared online database behind Kalasag. Only the website (`website/app.py`) talks to it. The extension talks to the website, never to the database directly.
+Kalasag can run entirely on one computer, using SQLite, or use this Supabase schema as a shared workspace for a team. The application presents the same storage interface in both modes; the browser extension always communicates with the [website API](../website/README.md), never directly with Supabase.
 
+```text
+Browser extension ──► Kalasag website (`app.py`) ──► SQLite or Supabase
+       reads approved terms,     reviews, trends,       structured records
+       saves evidence            alerts, evidence       + evidence files
 ```
-Extension ──► Website (app.py) ──► Supabase
- (reads words,     (dashboard,          (words, reports,
-  saves evidence)   alerts, trends)       leaders, alerts)
+
+## Data model
+
+| Data | What it represents | How it is used |
+|---|---|---|
+| `categories` | Detailed categories and their broader guide categories | Classifying lexicon terms and reports. |
+| `lexicon` | Community terms, spelling variants, meaning, language/country, severity, context note, submitter, and review status | Only `approved` entries are delivered to browser extensions. |
+| `lexicon_audit` | Before/after record of every lexicon insert, update, or delete | Lets a team trace changes to the vocabulary. |
+| `leaders` | A monitored woman leader, name variants, organization, and alert contact | Allows the server to recognize targets in report text. |
+| `events` | An upcoming leader event and location | Displayed with the corresponding leader in the dashboard. |
+| `reports` | Saved web-content evidence and its review state | Powers the review queue, trends, and alerts. |
+| `alerts` | A per-leader volume spike and summary | Shown as the early-warning feed. |
+| `incidents` | A broader incident record, witnesses, and attachment references | Keeps documentation separate from individual online reports. |
+
+Evidence files live outside the relational tables. Supabase uses a private `evidence` bucket with a 50 MB file limit; local mode writes them under `website/evidence/`. The database row records the generated file name and SHA-256 fingerprint.
+
+## Report lifecycle
+
+```text
+Extension report
+   │
+   ├─ approved lexicon hit ───────────────► approved ─► trends + spike checks
+   │
+   ├─ LLM-only finding ─┐
+   └─ user-highlighted ─┴───────────────► pending ──► expert approves/rejects
+                                                       │
+                                                       └─ approved reports enter trends + spike checks
 ```
 
-## Set up (once)
+The `source` field is `word_list`, `ai`, or `highlight`; `status` is `pending`, `approved`, or `rejected`. The server counts only approved reports when calculating trends and alerts.
 
-1. In Supabase, open **SQL Editor → New query**, paste `schema.sql` and click **Run**. Confirm the warning: the file first removes any older version of the tables.
-2. In the `website` folder, copy `.env.example` to `.env` and paste the **secret** key from **Project Settings → API Keys**.
-3. Start the website: `python app.py`. On its first start it adds the demo data.
+For a report with a screenshot fingerprint, the `reports_lock_evidence` trigger prevents the associated screenshot name or SHA-256 value from being changed through a later row update. This supports evidence integrity, but it is not a substitute for production access controls, backups, or a formal chain-of-custody process.
 
-## Tables
+## Set up Supabase
 
-| Table | Holds |
-|---|---|
-| `categories` | The 9 detailed categories, each linked to one of the guide's broad categories |
-| `lexicon` | The word database: term, spelling variants, meaning, category, severity, context note, review status |
-| `lexicon_audit` | Every change to the word database, so edits and removals can be traced and undone |
-| `leaders`, `events` | Registered leaders, their nicknames, and upcoming events |
-| `reports` | Evidence saved from the extension, with the screenshot fingerprint (SHA-256) |
-| `alerts` | Spike alerts |
-| `incidents` | Incidents a leader documents, with fingerprinted files |
+The local SQLite mode needs no work in this folder. Use Supabase when several people need the same data.
 
-Screenshots and incident files go in the private storage bucket `evidence`.
+1. Create a Supabase project.
+2. In **SQL Editor**, run [`schema.sql`](schema.sql).
+3. In [`../website`](../website), copy `.env.example` to `.env` and set `SUPABASE_URL` plus the project’s `SUPABASE_SECRET_KEY`.
+4. Start `python app.py` from the `website` folder. It checks that the tables exist and seeds its demo data if the lexicon is empty.
 
-## Word list from the guide
+`schema.sql` begins by dropping the existing Kalasag tables, functions, and views. Run it only for a fresh demo instance or when deliberately replacing an existing Kalasag dataset.
 
-`word_list.json` holds every word from the team guide's table (32 entries), with its meaning, category, severity, source and country. Entries marked `"flag": false` are context signals (for example `misandry`, `incel`, emojis) that are kept for reference but not flagged on their own.
+For a Supabase database created before pending report review was added, run [`migrations/002_report_review.sql`](migrations/002_report_review.sql) once. It adds `source`, `status`, reporter notes, and reviewer metadata without removing existing records; pre-existing reports remain approved.
 
-The flagged words are added through the website like any other submission, then approved, so they show up in the extension's word list. The extension only downloads words for the country set in its options (Philippines for the pilot).
+## Community source list
 
-## Security
+[`word_list.json`](word_list.json) is a reference catalogue of 32 terms from the team’s guide: 24 entries are marked for flagging and 8 are contextual/reference signals. It contains the source, country, language, meaning, category, severity, and a `flag` field.
 
-- Row level security is on for every table, with no public rules. The publishable key can't read or change anything; only the secret key (on the website's computer) can.
-- A saved screenshot and its fingerprint can't be changed afterwards (the database refuses).
-- Keep the secret key only in `website/.env`, which git ignores.
+The file is **not imported automatically** by `app.py`. Treat it as source material: submit applicable terms through the website’s Word database, check their spelling variants and context notes with language-aware reviewers, then approve them. That approval is what makes a term available to extensions. Terms with `"flag": false` should not generate a flag on their own.
 
-## Useful queries (SQL Editor)
+The app’s small fictional seed lexicon is separate from this catalogue and exists only to make the demo work immediately.
+
+## Supabase security boundary
+
+The schema enables row-level security on every application table and creates no public table policies. It grants access to the Supabase `service_role`, which is what the website server uses; the browser extension has neither the Supabase URL/key configuration nor direct database calls. The evidence bucket is private.
+
+This protects the database from public Supabase-table access, but the demo website API itself currently has no login, user roles, or per-organization authorization. Anyone who can reach that API can use the functions it exposes. A production deployment must add authenticated application roles, server-side authorization checks, restricted CORS, audited administrator access, HTTPS, and appropriate consent/retention controls before storing real incidents or evidence.
+
+## Useful checks in the Supabase SQL Editor
 
 ```sql
--- Reports per leader in the last 7 days
-select l.name, count(*) from reports r join leaders l on l.id = r.leader_id
-where r.created_at > now() - interval '7 days' group by l.name order by 2 desc;
+-- Approved reports about each leader in the past seven days
+select l.name, count(*) as reports
+from reports r
+join leaders l on l.id = r.leader_id
+where r.status = 'approved'
+  and r.created_at > now() - interval '7 days'
+group by l.name
+order by reports desc;
 
--- Reports by broad category
-select c.broad_label, count(*) from reports r join categories c on c.code = r.category group by 1;
+-- Terms that still need a human decision
+select id, term, language, country, submitted_by, created_at
+from lexicon
+where status = 'pending'
+order by created_at desc;
 
--- Words waiting for review
-select id, term, language, raw_submission from lexicon where status = 'pending';
+-- Reports waiting for expert review
+select id, source, category, matched_text, url, created_at
+from reports
+where status = 'pending'
+order by created_at desc;
 ```

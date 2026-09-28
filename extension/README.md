@@ -1,52 +1,83 @@
 # Kalasag browser extension
 
-Flags content that targets women and women leaders on any website, explains why, and lets you save it as evidence to the Kalasag website.
+The Kalasag extension helps a person recognize potential gendered abuse or disinformation while reading a web page, understand why it was flagged, and preserve a visible-page screenshot as evidence. It is designed to work with the [Kalasag website](../website/README.md), which supplies the approved community lexicon and receives reports.
 
-## Install (Chrome, Edge or Brave)
+## User experience
 
-1. Go to `chrome://extensions` and turn on **Developer mode** (top right).
-2. Click **Load unpacked** and choose this `kalasag-extension` folder.
-3. The settings page opens. Paste the shared hackathon key and your team key, then click **Save and test connection**.
-4. Start the website (`python app.py` in the `kalasag` folder) and click **Save and download word list**.
-5. Pin the Kalasag icon to the toolbar.
+### Set up once
 
-After changing any code, click the reload icon on the extension's card in `chrome://extensions`. Kalasag can attach itself when you next open its toolbar popup on `localhost` or another locally served page; refreshing the page also works. To scan a `file://` page, open Kalasag's **Details** page in `chrome://extensions` and enable **Allow access to file URLs**.
+In **Settings**, a person chooses their country and reading languages, and says whether they are the person being targeted, an ally, or working for an organization. Targets can choose to blur flagged content until they actively reveal it. Settings also offer a concise explanation only or the full view with legal and platform-reporting guidance.
 
-## How it works
+They then download the approved word list for their country and languages from the Kalasag website. Context-aware classification is optional but needs an OpenAI-compatible LLM endpoint, model, and one or two API keys. The extension tries the shared key first, then the team key if the first is unavailable.
 
-1. **Reading the page.** `content.js` walks the page and splits it into text blocks: posts, comments, headlines, paragraphs. It ignores forms, code, and sites on the "never scan" list (email and private messaging by default).
-2. **Word list.** Each block is checked locally against the community word list from the website, including spelling tricks like `1yak1n`. Matches are passed to the AI as hints.
-3. **AI check.** In "smart" mode, only blocks that mention women, gendered words or public roles are sent, 12 at a time, to the AI through `background.js`. The model decides from context whether each one targets women, and returns a category, severity, target, the harmful quote and a one-line reason. This is how it catches attacks that aren't in the word list, and avoids flagging fair criticism or news reporting.
-4. **Key fallback.** `kalasagCallModel` in `shared.js` does the same as the team's Python `ask()`: shared key first, team key if that's busy, refused or blocked, and the last error if both fail.
-5. **Highlights and pop-up.** Flags are drawn in an overlay on top of the page, so the site's own code is never modified. Clicking "Kalasag" opens the pop-up with the reason, legal information and reporting steps from the website, plus **Save as evidence** and **Not harmful**.
-6. **Evidence.** Saving takes a screenshot, adds a strip at the bottom with the page address and the time (UTC), and sends it with the text and link to `POST /api/reports`. If the website is down, the report is kept and can be sent later from the toolbar button.
-7. **Report something yourself.** Select any text on a page, right-click and choose **Report to Kalasag**. Pick the kind of attack (or "not sure"), add a note on why it's disinformation or abuse, and click **Save as evidence**. The highlighted text stays marked in yellow in the screenshot.
-8. **Expert review.** Posts that matched the verified word list count straight away. Highlighted text, and posts only the AI found, wait on the dashboard's Reports tab until an expert approves them.
+### Browse and understand a flag
 
-If there's no key or the AI call fails, word-list matches are still shown with a dashed outline and marked "Word list only".
+On a normal web page, Kalasag reads visible text in posts, comments, headings, and paragraphs; it does not alter the page’s own HTML. It draws an overlay around text that needs attention. Selecting the marker shows:
 
-## Demo script
+- the type and severity of the possible attack;
+- a short explanation and the relevant harmful passage;
+- reporting instructions for the current platform;
+- available country-specific legal information and, for threats, an immediate-safety note.
 
-1. With `app.py` running, open `http://localhost:8000/test-feed`: posts with gendered attacks get flagged; fair criticism and the everyday use of "iyakin" should not.
-2. Open `http://localhost:8000/test-article`: the article reporting on abuse stays clean, while the misogynistic comments and the threat are flagged.
-3. Try a real news site to show it works anywhere.
-4. Click a flag, then **Save as evidence**, and show it arriving on the dashboard's Reports tab.
-5. Highlight part of a post the extension didn't flag, right-click, **Report to Kalasag**, save it, then approve it under **Waiting for review** on the Reports tab.
-6. In Settings, switch the role to "I'm the one being targeted" and show flagged content being blurred.
+The user can mark a result **Not harmful**. The classifier is explicitly instructed to leave ordinary policy criticism, neutral news, fact-checks, and harmless everyday language unflagged.
 
-## Files
+### Preserve evidence or report a missed item
 
-| File | What it does |
+Choose **Save as evidence** on a flag to capture the current visible tab. Kalasag adds the URL and UTC time to the screenshot, sends it with the text and page metadata to the website, and displays a portion of its SHA-256 fingerprint. If the website cannot be reached, it retains the report in browser storage; the toolbar popup offers to send pending reports later.
+
+For content Kalasag did not flag, select the text, right-click, and choose **Report to Kalasag**. The user can choose a category or leave it for an expert, add an explanatory note, and save evidence. A highlighted report and an AI-only report are pending until an expert reviewer approves them. A report backed by an already approved word-list entry is accepted immediately.
+
+Kalasag preserves material and explains reporting paths; it does not submit a complaint to platforms or public authorities on the user’s behalf.
+
+## Install and connect
+
+1. Start the website first. From the repository root:
+
+   ```bash
+   cd website
+   python -m pip install -r requirements.txt
+   python app.py
+   ```
+
+2. In Chrome, Edge, or Brave, go to `chrome://extensions`, turn on **Developer mode**, choose **Load unpacked**, and select this `extension` folder.
+3. The settings page opens after installation. Set the **Website address** (normally `http://localhost:8000`) and choose **Save and download word list**.
+4. To enable contextual classification, enter an OpenAI-compatible endpoint, a model, and at least one API key, then select **Save and test connection**.
+5. Pin the extension and open [the test feed](http://localhost:8000/test-feed).
+
+After changing extension code, use the reload icon on its `chrome://extensions` card, then refresh the page. To scan a `file://` fixture, enable **Allow access to file URLs** in the extension’s Details page. Browser-internal pages and the Chrome Web Store cannot be scanned.
+
+## How the extension works
+
+1. `content.js` collects visible, readable blocks (up to 1,200 characters each), ignoring inputs, editable fields, code, scripts, and other non-reading UI. It watches for newly loaded feed content as well.
+2. It compares each block locally with the downloaded, reviewer-approved lexicon, including configured spelling variants. It does not send the entire word list to the model.
+3. In the default **smart** scope, only blocks with a lexicon hit or a cue related to women, gender, or public roles are candidates for AI review. **All text** can be selected in Settings when broader scanning is appropriate. The configurable page cap is 150 snippets by default.
+4. Candidate blocks are sent to the configured API in batches of 12. The prompt supplies the page URL/title and any word-list hits as context; it asks the model for only confirmed flags, with category, severity, target, quote, and reason.
+5. If no API key is configured or an AI call fails, verified word-list hits remain visible with a dashed **Word list only** marker. They have not received contextual AI review.
+6. The overlay and popup let the person dismiss a flag, pause scanning on the current site, rescan, refresh the lexicon, or send queued reports.
+
+## Privacy and operating boundaries
+
+- The extension has `<all_urls>` host permission so it can scan pages people choose to visit. It does not run on browser-protected pages.
+- In smart mode, only candidate snippets are sent to the configured LLM provider; all-text mode sends more of the page. Do not scan pages whose content should not leave the browser.
+- Email and private-messaging sites are excluded by default. Add any other site to **Never scan these sites** in Settings.
+- Browser settings, API keys, the downloaded lexicon, and pending reports are stored in Chrome extension-local storage. The model provider and its data practices are determined by the endpoint configured in Settings.
+- Screenshots are of the currently visible tab, not a full-page capture. This is a demo prototype; see the root README for production requirements.
+
+## Try the demo
+
+1. Open [test-feed](http://localhost:8000/test-feed). Gendered attacks should be flagged, while fair criticism and the everyday use of `iyakin` should stay clear.
+2. Open [test-article](http://localhost:8000/test-article). The article’s reportage should not be flagged; abusive comments and the threat should be.
+3. Save a flag, then find it under **Reports** on the website.
+4. Highlight a missed passage, use **Report to Kalasag**, and then approve or reject it under **Waiting for review**.
+5. Set your role to **I’m the one being targeted** to see the optional content blur.
+
+## File guide
+
+| File | Responsibility |
 |---|---|
-| `manifest.json` | Permissions and file list |
-| `shared.js` | Settings, prompt, word matching, AI call with key fallback |
-| `background.js` | All network calls: AI, website, screenshots |
-| `content.js` | Reads pages, draws highlights and the pop-up |
-| `popup.html/js` | Toolbar button: counts, pause on site, refresh, pending reports |
-| `options.html/js` | Setup: country, languages, role, keys, scanning |
-
-## Good to know
-
-- Page text is sent to the AI endpoint, so exclude any site you don't want read in Settings.
-- The keys are stored in the browser's local extension storage. Never commit them, and don't publish this extension with keys in it.
-- The AI can be wrong in both directions. Every flag says why, and "Not harmful" hides it.
+| `manifest.json` | Manifest V3 permissions, extension entry points, and content-script matches. |
+| `shared.js` | Defaults, local matching, relevance cues, classifier prompt/parser, and API-key fallback. |
+| `content.js` | Page reading, scanning, flag overlays, content blur, the evidence panel, and manual highlighting. |
+| `background.js` | Model and website requests, screenshot stamping, retries, legal-info caching, and context-menu setup. |
+| `options.html` / `options.js` | User settings and connection tests. |
+| `popup.html` / `popup.js` | Toolbar controls, scan status, lexicon refresh, and pending-report retry. |

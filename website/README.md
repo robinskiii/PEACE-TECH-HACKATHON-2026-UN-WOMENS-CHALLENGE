@@ -1,8 +1,41 @@
-# Kalasag: data-gathering website (demo)
+# Kalasag website and API
 
-Runs on Python 3.9+ with one small HTTPS certificate dependency.
+The website is the partner workspace for Kalasag. It receives evidence from the browser extension, maintains the community-validated lexicon, puts unverified reports in front of reviewers, and turns approved reports into trends and early-warning signals.
 
-## Run it
+It is a deliberately small Python 3.9+ application with no frontend build step. It runs locally by default and can use Supabase when a team needs a shared workspace.
+
+## What partners use it for
+
+### Evidence, reports, and incidents
+
+The **Reports** workspace holds evidence saved from the extension: the source URL, platform, matched and surrounding text, source type, target leader when recognized, and an optional screenshot. Each screenshot is SHA-256 fingerprinted when it is stored. This gives a partner a stable record to support their own platform report, legal consultation, or complaint process; Kalasag does not lodge those complaints automatically.
+
+The **Incidents** workspace records a written incident, its date, witnesses, and up to ten optional files such as photos or voice notes. Reports and incidents are separate: an online report captures a specific piece of content; an incident records a broader event.
+
+### A living, reviewed lexicon
+
+The **Word database** is where a community member or partner proposes a term. A submission includes the term, language, country, explanation, and submitter. If `ANTHROPIC_API_KEY` is configured, the server can draft a meaning, category, severity, spelling variants, and context note; otherwise it creates a basic draft. A human reviewer edits it, then approves or rejects it.
+
+Only approved entries are returned from `GET /api/lexicon`, which means the extension’s local matching list is reviewed rather than an unmoderated stream of suggestions. Each entry carries a context note so a familiar word is not treated as harmful in every setting.
+
+### Review before patterns are counted
+
+An extension report with an approved lexicon entry is accepted immediately because the matched term was previously reviewed. AI-only findings and text a person highlights themselves are **pending**: the reviewer checks the screenshot, context, original page, category, and leader before approving or rejecting them. Only approved reports contribute to reports lists, trends, or alerts.
+
+### Trends and early warning
+
+The **Trends** view groups approved reports by date, leader, detailed/broad category, and platform. It compares the current week with the preceding one to show rising narratives.
+
+An alert fires for a leader when both conditions hold:
+
+- at least **5** approved reports mention her in the previous 24 hours; and
+- that count is at least **3×** her average daily count over the previous seven days.
+
+Kalasag permits at most one alert per leader every six hours. The dashboard can inject fictional reports to demonstrate this flow. The thresholds are `SPIKE_MIN`, `SPIKE_MULTIPLIER`, and `ALERT_COOLDOWN_HOURS` in [`app.py`](app.py).
+
+## Run locally
+
+Install the sole Python dependency and start the server:
 
 ```bash
 cd website
@@ -10,137 +43,125 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-Then open:
+Open:
 
-- http://localhost:8000 for the partner dashboard (trends, word database, alerts, reports, incidents)
-- http://localhost:8000/test-feed and http://localhost:8000/test-article to test the extension on
+- [http://localhost:8000](http://localhost:8000) — partner dashboard;
+- [http://localhost:8000/test-feed](http://localhost:8000/test-feed) — fictional social-feed fixture;
+- [http://localhost:8000/test-article](http://localhost:8000/test-article) — fictional article/comment fixture.
 
-## Where the data is stored
+With no configuration, data lives only on this computer:
 
-| Setup | Data lives in | Who sees it |
-|---|---|---|
-| `website/.env` has the Supabase keys | Supabase (online) | Everyone on the team, from any computer |
-| No `.env` | `website/kalasag.db` (a local file) | Only this computer |
-
-**To use Supabase:**
-1. The first time only, run `../database/schema.sql` in Supabase (**SQL Editor → New query → Run**).
-2. Copy `.env.example` to `.env` in this folder and paste the **secret** key from **Project Settings → API Keys**.
-3. Run `python app.py`. The terminal should say `Database: Supabase (shared, online)`.
-
-The first start adds the demo data (fictional leaders, Tagalog and English words, two quiet weeks of reports).
-
-`.env` is git-ignored. Never commit it and never share the secret key in chat.
-
-**AI (optional):** add `ANTHROPIC_API_KEY` to `.env` to turn on AI drafting of new words and AI alert summaries. Without it, everything still works and drafts are filled in by hand.
-
-**Start over with fresh demo data:** local file: stop the server, delete `kalasag.db` and `evidence/`. Supabase: run `schema.sql` again, then restart.
-
-## Categories
-
-Every report has a detailed category (what the extension and the word list use) and a broad category from the team's guide:
-
-| Broad category | Detailed categories |
+| Data | Local backend |
 |---|---|
-| Gender hate speech | Sexualized slur, "Too emotional to lead", "Belongs at home", Appearance, Demeaning women as a group, Threat |
-| Gendered disinformation | "Puppet" or incompetence, Fabricated scandal |
-| Manipulated text or context | Found by the AI check (e.g. fabricated quotes) |
+| Structured records | `website/kalasag.db` (SQLite) |
+| Screenshots and incident files | `website/evidence/` |
 
-Change the mapping in `BROAD_OF` at the top of `app.py`.
+The first run seeds fictional leaders, approved and pending terms, and a quiet reporting history so the dashboard and spike simulation have something to show.
 
-## Demo script
+## Use Supabase for a shared workspace
 
-1. Trends: the dashboard opens here. Show reports per day, the rising narratives and the leaders table.
-2. Word database: suggest a new term, show the AI draft, edit it, approve it. It now appears in the JSON feed.
-3. Open the test feed with the extension on. Flagged posts get highlighted; fair criticism does not.
-4. Click "Save as evidence" in the extension. The report appears on the Reports tab with its fingerprint.
-5. Leaders and alerts: click "Simulate a spike". The alert appears with a summary.
-6. Incidents: record an incident with a photo or voice note.
+1. Create a Supabase project and run [`../database/schema.sql`](../database/schema.sql) in **SQL Editor**. The schema is destructive: it removes older Kalasag tables before creating them.
+2. Copy `.env.example` to `.env` in this folder.
+3. Set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in `.env`, then restart `python app.py`.
 
-## API for the extension
+The startup message will say `Database: Supabase (shared, online)`. The extension still speaks only to this website API; it never receives the Supabase secret or queries Supabase directly. In the Supabase mode, evidence is placed in the private `evidence` storage bucket created by the schema.
 
-All requests and responses are JSON. Base URL: `http://localhost:8000`.
-Add `"http://localhost:8000/*"` to `host_permissions` in the extension manifest.
+`ANTHROPIC_API_KEY` is optional and powers AI drafts for new lexicon submissions and alert summaries. It is separate from the browser extension’s OpenAI-compatible classification connection. Without it, term drafts and alert summaries use the built-in non-AI fallback.
 
-### Download the word list
+If an existing Supabase deployment was created before report review was introduced, run [`../database/migrations/002_report_review.sql`](../database/migrations/002_report_review.sql) once. A freshly applied `schema.sql` already includes those fields.
+
+## How it works
+
+```text
+Browser extension
+  ├─ downloads approved country/language lexicon entries
+  ├─ saves a visible-tab screenshot, text, URL, platform, and source metadata
+  └─ POST /api/reports
+           │
+           ▼
+app.py
+  ├─ stores files and their SHA-256 fingerprints
+  ├─ identifies a registered leader from name variants in the text
+  ├─ marks the report approved or pending based on its source
+  ├─ evaluates the per-leader spike rule for approved reports
+  └─ exposes dashboard data and reporting/legal guidance
+           │
+           ▼
+SQLite (local) or Supabase + private storage (shared)
+```
+
+The server is a `ThreadingHTTPServer` bound to `127.0.0.1:8000`. It provides JSON responses and allows cross-origin requests so a locally loaded browser extension can call it. The dashboard is a static page served by the same process and consumes those API endpoints.
+
+## API used by the extension
+
+Base URL: `http://localhost:8000`. Requests and responses are JSON.
+
+### Download the approved word list
 
 `GET /api/lexicon?country=PH&languages=tl,en`
 
-```json
-{
-  "version": "2026-09-26T14:41:40Z",
-  "count": 7,
-  "entries": [
-    {
-      "id": 1, "term": "iyakin", "variants": ["1yak1n", "iyak1n"],
-      "language": "tl", "country": "PH",
-      "meaning": "Crybaby. Used to paint a woman leader as too emotional to govern.",
-      "category": "emotional_unfitness",
-      "category_label": "False 'too emotional to lead' narrative",
-      "severity": "medium",
-      "context_note": "Everyday word. Only harmful when aimed at a woman leader's capacity to lead."
-    }
-  ]
-}
-```
+The response contains a version timestamp, count, and approved entries. An entry includes its term, variants, meaning, language/country, detailed and broad categories, severity, and context note. Extensions should refresh when the version changes and match both the term and variants case-insensitively.
 
-Cache it and re-download when `version` changes. Match `term` and every item in `variants`, case-insensitive.
-
-### Save a report ("Save as evidence")
+### Save a report
 
 `POST /api/reports`
 
 ```json
 {
+  "source": "word_list",
   "lexicon_id": 1,
   "matched_text": "1yak1n",
-  "context_text": "the full post text around the match",
-  "url": "https://...",
+  "context_text": "the surrounding post or comment",
+  "category": "emotional_unfitness",
+  "url": "https://example.org/post/1",
   "platform": "facebook",
-  "reporter_role": "target | ally | organization",
+  "reporter_role": "ally",
   "country": "PH",
   "screenshot_b64": "data:image/png;base64,..."
 }
 ```
 
-Only `matched_text` or `lexicon_id` is required. The server works out which registered leader the post is about from `context_text`, fingerprints the screenshot, and checks for a spike.
-Response: `{ "id", "created_at", "leader_id", "screenshot_sha256", "alert_triggered" }`.
+Send `matched_text` or `lexicon_id`. `source` may be `word_list`, `ai`, or `highlight`. The server derives the category from `lexicon_id` when needed, tries to identify a registered leader in the text, saves and fingerprints the screenshot, and returns the report ID, status, leader ID, fingerprint, and any triggered alert.
 
-A screenshot can be taken in the extension's background script with `chrome.tabs.captureVisibleTab()`, which returns a data URL you can send as-is.
+### Get legal and platform-reporting guidance
 
-### Legal info and reporting steps for the pop-up
+`GET /api/legal-info?country=PH&platform=facebook`
 
-`GET /api/legal-info?country=PH&platform=facebook` returns laws, authorities, a threat note and step-by-step reporting instructions. Countries: `PH`, `AU`. Platforms: `facebook`, `x`, `tiktok`, `other`.
+The current demo provides Philippines and Australia information, plus reporting steps for Facebook, X, TikTok, and a general fallback. The extension has a small offline fallback for the same purpose.
 
-## Other endpoints (used by the dashboard)
+## Dashboard API reference
 
-| Method | Path | What it does |
+| Method | Endpoint | Use |
 |---|---|---|
-| GET | /api/stats?days=14 | Numbers for the Trends page: reports per day per leader, narratives, broad categories, platforms, leaders |
-| GET | /api/status | Whether AI is on; category, language and severity lists |
-| GET | /api/submissions?status=pending | Review queue (also `approved`, `rejected`) |
-| POST | /api/submissions | Suggest a term: `term, language, country, explanation, submitted_by` |
-| POST | /api/submissions/{id}/approve | Approve with edits: `reviewer, meaning, category, severity, variants, context_note` |
-| POST | /api/submissions/{id}/reject | Reject: `reviewer` |
-| GET | /api/reports | Latest reports |
-| GET / POST | /api/leaders | List or register leaders and events |
-| GET | /api/alerts | Alerts, newest first |
-| POST | /api/alerts/{id}/seen | Mark an alert as seen |
-| GET / POST | /api/incidents | List or save incidents (`files: [{name, data_b64}]`) |
-| POST | /api/demo/inject | Add fake reports: `leader_id, count` |
-| POST | /api/demo/reset | Remove demo reports and all alerts |
+| `GET` | `/api/status` | Runtime capabilities, category/language lists, and pending count. |
+| `GET` / `POST` | `/api/submissions` | List terms by review status or submit a new term. |
+| `POST` | `/api/submissions/{id}/approve` | Approve a term with reviewer edits. |
+| `POST` | `/api/submissions/{id}/reject` | Reject a term. |
+| `GET` | `/api/reports?status=pending` | List reports by `pending`, `approved`, or `rejected` status. |
+| `POST` | `/api/reports/{id}/approve` | Approve a pending report; accepts reviewer, category, and optional leader ID. |
+| `POST` | `/api/reports/{id}/reject` | Reject a pending report; requires reviewer. |
+| `GET` / `POST` | `/api/leaders` | List leaders with events/report counts or add a leader and optional event. |
+| `GET` | `/api/alerts` | Read early-warning alerts. |
+| `POST` | `/api/alerts/{id}/seen` | Mark an alert seen. |
+| `GET` / `POST` | `/api/incidents` | List or create incident records. |
+| `GET` | `/api/stats?days=14` | Trend, narrative, platform, leader, and alert aggregates. |
+| `POST` | `/api/demo/inject` | Add fictional reports to demonstrate a spike. |
+| `POST` | `/api/demo/reset` | Remove injected demo reports and alerts. |
 
-## Expert review of reports
+## Categories
 
-- Reports that matched a word from the verified word list count straight away.
-- Text someone highlighted with **Report to Kalasag**, and posts only the AI found, arrive as **pending**. They appear under **Waiting for review** on the Reports tab, with the screenshot, the reporter's note and a link to the original page.
-- An expert can correct the category and the leader, then **Approve** (it counts in Trends, alerts and the reports list) or **Reject**.
-- Endpoints: `GET /api/reports?status=pending` and `POST /api/reports/{id}/approve` or `/reject` with `{"reviewer": "...", "category": "...", "leader_id": 1}`.
-- Supabase tables created before this feature need `database/migration_002_report_review.sql` run once in the SQL Editor.
+The lexicon and reports use a detailed category and map it to a broad category from the project guide.
 
-## Spike rule
+| Broad category | Detailed categories |
+|---|---|
+| Gender hate speech | Sexualized slur, too-emotional narrative, family-role attack, appearance attack, demeaning women as a group, threat |
+| Gendered disinformation | Competence/puppet narrative, fabricated scandal |
+| Not yet classified | Needs classification |
 
-An alert fires when a leader has at least 5 reports in the last 24 hours and at least 3 times her average daily count over the previous 7 days. At most one alert per leader every 6 hours. Change `SPIKE_MIN`, `SPIKE_MULTIPLIER` and `ALERT_COOLDOWN_HOURS` at the top of `app.py`.
+The mapping lives in `BROAD_OF` near the top of [`app.py`](app.py).
 
-## Before this is used for real
+## Demo and production boundary
 
-This is a local demo. Real use would need login and roles (only verified partners approve words; only a leader and her team see her events and incidents), encrypted storage for incidents, HTTPS, compliance with the Philippines Data Privacy Act of 2012, and legal text checked by a lawyer. All leaders, posts and the placeholder slur in the seed data are fictional.
+The dashboard’s people, events, reports, and placeholder slur are fictional. The current server has no authentication or role enforcement, uses a local HTTP development setup, and exposes a permissive CORS policy for extension testing. Do not treat it as a live vault for sensitive evidence.
+
+Before a real deployment, add authenticated user and organization roles, authorization for reports/evidence/incidents, HTTPS, production secret management, consent and retention controls, backup and incident-response processes, legal review of jurisdictional guidance, and a privacy/security assessment. See [the database README](../database/README.md) for the data model and storage boundary.
