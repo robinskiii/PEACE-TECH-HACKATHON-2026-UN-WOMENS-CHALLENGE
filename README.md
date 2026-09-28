@@ -1,12 +1,12 @@
 # Kalasag
 
-Kalasag is a prototype for helping women leaders and the organizations around them recognize, document, and respond to gendered hate speech and disinformation online. It combines a browser extension with a shared monitoring and evidence workspace.
+**Kalasag** is a POC prototype for helping women leaders and the organizations around them recognize, document, and respond to gendered hate speech and disinformation online. It combines a browser extension with a shared monitoring and evidence workspace.
 
-> **Prototype status.** Kalasag ships with fictional people, posts, and placeholder terms for demonstration. It is not yet a production incident-management or emergency-response service.
+> **Kalasag**  (or kalaság) is a Filipino word that translates to shield or defense in Tagalog, Cebuano, and several other Philippine languages.
 
 ## Problem
 
-For women in public life, online abuse is often more than ordinary disagreement. It can be a coordinated mix of sexualized insults, gender stereotypes, fabricated scandals, threats, and claims that a woman is too emotional, incompetent, or controlled by a man to lead. Its purpose can be to discredit women’s work and make public participation feel unsafe. UN Women’s South-East Asia research identifies trolling, online hate speech, disinformation and slander campaigns among the digital-security risks facing women, and describes systematic online attacks as a barrier to equality, human rights, and inclusive peace. [UN Women, 2024](https://asiapacific.unwomen.org/en/stories/press-release/2024/10/un-women-research-recommends-strategies-to-advance-the-women-peace-and-security-agenda-in-the-digital-space)
+For women in public life, online abuse is often more than ordinary disagreement. It can be a coordinated mix of sexualized insults, gender stereotypes, fabricated scandals, threats, and claims that a woman is too emotional, incompetent, or controlled by a man to lead. Its purpose can be to discredit women’s work and make public participation feel unsafe. UN Women’s South-East Asia research identifies trolling, online hate speech, disinformation and slander campaigns among the digital-security risks facing women, and describes systematic online attacks as a barrier to equality, human rights, and inclusive peace.
 
 The evidence gap makes response harder. Harmful posts can be deleted, reports can be scattered across platforms, and the pattern behind a campaign is difficult to see one screenshot at a time. Under-reporting is also substantial: UN Women reports that only one in four women reports online violent acts to the platform where they occurred, and fewer report them to a protective agency. [UN Women explainer](https://www.unwomen.org/en/articles/explainer/power-on-how-we-can-supercharge-an-equitable-digital-future)
 
@@ -16,17 +16,21 @@ Automated moderation does not solve this on its own. Models may miss local langu
 
 Kalasag supports two connected experiences.
 
-### Browser extension: make a decision while you are on the page
+### 1. Browser extension: detect and report hate-speech on any website
 
-1. Choose a country, the languages you read, and whether you are the target, an ally, or part of an organization. A targeted user can have flagged content blurred by default.
-2. Browse normally. Kalasag checks text blocks such as posts, comments, and paragraphs. It recognizes verified local terms—including configured spelling variants—then uses an LLM to assess the surrounding context.
-3. When content is flagged, open the marker to see the category, severity, short explanation, relevant reporting steps, and available legal information. Fair criticism, neutral reporting, and everyday uses of a word are deliberately meant to remain unflagged.
-4. Select **Save as evidence** to capture the visible page. The saved screenshot is stamped with its URL and UTC time, fingerprinted with SHA-256, and sent to the Kalasag workspace. If the workspace cannot be reached, the extension keeps the report locally so it can be sent later.
-5. If something was missed, select it, right-click, and choose **Report to Kalasag**. Add an optional note and send it for expert review.
+<img src="DEMO_IMAGES/EXTENSION_DEMO.png" alt="Browser extension Screenshot" width="1000">
+
+- Choose a country, the languages you read, and whether you are the target, an ally, or part of an organization. A targeted user can have flagged content blurred by default.
+- Browse normally. Kalasag checks text blocks such as posts, comments, and paragraphs. It recognizes verified local terms—including configured spelling variants—then uses an LLM to assess the surrounding context.
+- When content is flagged, open the marker to see the category, severity, short explanation, relevant reporting steps, and available legal information. Fair criticism, neutral reporting, and everyday uses of a word are deliberately meant to remain unflagged.
+- Select **Save as evidence** to capture the visible page. The saved screenshot is stamped with its URL and UTC time, fingerprinted with SHA-256, and sent to the Kalasag workspace. If the workspace cannot be reached, the extension keeps the report locally so it can be sent later.
+- If something was missed, select it, right-click, and choose **Report to Kalasag**. Add an optional note and send it for expert review.
 
 The extension does **not** submit a complaint to a platform, police, or other authority. It preserves evidence and gives reporting guidance so a person or partner organization can decide the next step.
 
-### Kalasag website: turn individual reports into usable evidence
+### 2. Kalasag website: turn individual reports into usable evidence
+
+<img src="DEMO_IMAGES/WEBSITE_DEMO.png" alt="Browser extension Screenshot" width="1000">
 
 The website is the partner workspace behind the extension:
 
@@ -94,7 +98,7 @@ Kalasag website API
 SQLite locally, or Supabase for a shared deployment
 ```
 
-More precisely, the lexicon is stored in SQLite by default or in Supabase when configured. The extension downloads only approved terms for its selected country and languages, and matches them in the browser. Word hits are *hints*, not a verdict. In smart mode, the extension sends only snippets with women-, gender-, or public-role cues to the configured LLM; all-text mode is available when broader checking is needed. The LLM returns a category, severity, target, harmful quote, and explanation. It is also instructed to preserve democratic criticism and reporting about abuse.
+More precisely, the lexicon is stored in SQLite by default or in Supabase when configured. The extension downloads only approved terms for its selected country and languages, and matches them in the browser. Word hits are *hints*, not a verdict. In smart mode, the extension sends only snippets with women, gender, or public-role cues to the configured LLM; all-text mode is available when broader checking is needed. The LLM returns a category, severity, target, harmful quote, and explanation. It is also instructed to preserve democratic criticism and reporting about abuse.
 
 The browser keeps its settings, downloaded lexicon, and unsent reports in extension-local storage. API keys remain there; text sent for AI classification goes to the configured API provider. The server stores evidence through its storage backend and exposes a local demo API without user authentication. Consequently, this repository is suitable for a hackathon/demo environment only. A real deployment needs authentication and roles, HTTPS, access controls around evidence and incidents, retention and consent policies, jurisdiction-specific legal review, and a privacy/security assessment.
 
@@ -111,4 +115,12 @@ The browser keeps its settings, downloaded lexicon, and unsent reports in extens
 
 Built for the UN Women Peace Tech Hackathon 2026 challenge.
 
-Team Members: Bhawana Singh, Vaibhav Sharma, Vanessa Fabijan, Mikka Vapor, Lilia Bentahila, Kenza Kettani, Adarsh Ravikumar and Robin Sanders
+### Team Members: 
+- Bhawana Singh
+- Vaibhav Sharma
+- Vanessa Fabijan
+- Mikka Vapor
+- Lilia Bentahila
+- Kenza Kettani
+- Adarsh Ravikumar
+- Robin Sanders
