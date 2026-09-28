@@ -111,4 +111,4 @@ The browser keeps its settings, downloaded lexicon, and unsent reports in extens
 
 Built for the UN Women Peace Tech Hackathon 2026 challenge.
 
-Add the team members and partner organizations here.
+Team Members: Bhawana Singh, Vaibhav Sharma, Vanessa Fabijan, Mikka Vapor, Lilia Bentahila, Kenza Kettani, Adarsh Ravikumar and Robin Sanders
